@@ -18,30 +18,48 @@ describe("qdistroPwd", () => {
     return env.port.sent.find((m) => m.op === op);
   }
 
+  // Tests below call fill()/save() and check the outbound frame
+  // synchronously. The returned Promise must be resolved (with a
+  // synthetic .reply) or attached via .catch so the dispatcher's
+  // pending Map doesn't leak across tests. autoReply() does both.
+  function autoReply(op, body) {
+    const frame = lastOutbound(op);
+    if (!frame) return null;
+    env.port.deliver({
+      op: `${op}.reply`,
+      request_id: frame.request_id,
+      ok: true,
+      ...(body || {}),
+    });
+    return frame;
+  }
+
   it("exposes the qdistroPwd module on the scope", () => {
     expect(env.scope.qdistroPwd).toBeTruthy();
     expect(typeof env.scope.qdistroPwd.fill).toBe("function");
     expect(typeof env.scope.qdistroPwd.save).toBe("function");
   });
 
-  it("pwd.fill sends url, username, and intent_token", () => {
-    void env.scope.qdistroPwd.fill("https://example.com/login", "alice", {
+  it("pwd.fill sends url, username, and intent_token", async () => {
+    const p = env.scope.qdistroPwd.fill("https://example.com/login", "alice", {
       operation: "pwd.fill", nonce: "n-1",
     });
-    const frame = lastOutbound("pwd.fill");
+    const frame = autoReply("pwd.fill", { credentials: [] });
     expect(frame).toBeTruthy();
     expect(frame.url).toBe("https://example.com/login");
     expect(frame.username).toBe("alice");
     expect(frame.intent_token).toMatchObject({ operation: "pwd.fill" });
     expect(typeof frame.request_id).toBe("number");
+    await p;
   });
 
-  it("pwd.fill normalizes a missing username to null", () => {
-    void env.scope.qdistroPwd.fill("https://example.com/login", "", {
+  it("pwd.fill normalizes a missing username to null", async () => {
+    const p = env.scope.qdistroPwd.fill("https://example.com/login", "", {
       operation: "pwd.fill",
     });
-    const frame = lastOutbound("pwd.fill");
+    const frame = autoReply("pwd.fill", { credentials: [] });
     expect(frame.username).toBeNull();
+    await p;
   });
 
   it("pwd.fill resolves with credentials on a successful reply", async () => {
@@ -92,16 +110,17 @@ describe("qdistroPwd", () => {
     expect(r.error).toBe("vault_locked");
   });
 
-  it("pwd.save sends url, username, password, and intent_token", () => {
-    void env.scope.qdistroPwd.save(
+  it("pwd.save sends url, username, password, and intent_token", async () => {
+    const p = env.scope.qdistroPwd.save(
       "https://example.com/signup", "bob", "hunter2",
       { operation: "pwd.save", nonce: "n-2" });
-    const frame = lastOutbound("pwd.save");
+    const frame = autoReply("pwd.save", { saved: true });
     expect(frame).toBeTruthy();
     expect(frame.url).toBe("https://example.com/signup");
     expect(frame.username).toBe("bob");
     expect(frame.password).toBe("hunter2");
     expect(frame.intent_token).toMatchObject({ operation: "pwd.save" });
+    await p;
   });
 
   it("pwd.save resolves with ok:true when the bridge confirms storage", async () => {
@@ -135,15 +154,16 @@ describe("qdistroPwd", () => {
     expect(r.error).toBe("vault_locked");
   });
 
-  it("pwd.save without an intent token still ships the frame (bridge enforces)", () => {
+  it("pwd.save without an intent token still ships the frame (bridge enforces)", async () => {
     // The extension forwards intent_token as-is; the bridge is the
     // security gate. We assert the wire shape so a bridge-side
     // verifier sees intent_token === null and rejects.
-    void env.scope.qdistroPwd.save(
+    const p = env.scope.qdistroPwd.save(
       "https://example.com/", "carol", "p",
       null);
-    const frame = lastOutbound("pwd.save");
+    const frame = autoReply("pwd.save", { saved: false, error: "no_intent" });
     expect(frame.intent_token).toBeNull();
+    await p;
   });
 
   it("registers no inbound handlers — pwd is one-way", () => {
@@ -152,11 +172,15 @@ describe("qdistroPwd", () => {
     expect(env.scope.qdistroDispatcher.handlers.has("pwd.save")).toBe(false);
   });
 
-  it("uses a fresh request_id per call (concurrent fills do not collide)", () => {
-    void env.scope.qdistroPwd.fill("https://a.example/", null, {});
-    void env.scope.qdistroPwd.fill("https://b.example/", null, {});
+  it("uses a fresh request_id per call (concurrent fills do not collide)", async () => {
+    const a = env.scope.qdistroPwd.fill("https://a.example/", null, {});
+    const b = env.scope.qdistroPwd.fill("https://b.example/", null, {});
     const frames = env.port.sent.filter((m) => m.op === "pwd.fill");
     expect(frames).toHaveLength(2);
     expect(frames[0].request_id).not.toBe(frames[1].request_id);
+    // Resolve both so the dispatcher's pending Map drains.
+    env.port.deliver({ op: "pwd.fill.reply", request_id: frames[0].request_id, ok: true });
+    env.port.deliver({ op: "pwd.fill.reply", request_id: frames[1].request_id, ok: true });
+    await Promise.all([a, b]);
   });
 });

@@ -1,31 +1,37 @@
-// mpris module — 9e-1.
+// mpris module.
 //
-// Listens for media-session metadata in tabs (Web Media Session API
-// via a content script on demand) and forwards play/pause/track to
-// the bridge as `mpris.update`. Receives bridge-initiated
-// `mpris.control` ops (play/pause/next/prev) and translates them
-// into tab.executeScript calls on the active media tab.
+// Inbound `mpris.control` (play/pause/next/prev): handled in
+// content/mpris-content.js; the dispatcher here just registers a
+// stub that the content-script forwarder can replace.
 //
-// Stub-grade: the content-script media observer is non-trivial
-// (cross-frame, autoplay-policy, etc.); we wire the dispatch shape
-// and inbound handler so the bridge side can land independently.
+// Outbound: wire op is `mpris.publish` (NOT `mpris.update`) per the
+// bridge handler's whitelist: (title, artist, album, playback_status,
+// position_us, tab_id). The content script reports {state, position
+// in seconds}; we translate here so the content script doesn't need
+// to know the bridge's field naming.
 //
 // @ts-check
 (function (root) {
   "use strict";
   const dispatcher = root.qdistroDispatcher;
 
-  // Inbound: bridge tells us to control playback.
   dispatcher.register("mpris.control", async (msg) => {
-    // STUB: real implementation locates the active media tab and
-    // dispatches navigator.mediaSession actions or HTMLMediaElement
-    // .play()/.pause() via tabs.executeScript.
     return { ok: true, action: String(msg.action || ""), stub: true };
   });
 
-  // Outbound helper for the (future) content-script observer.
   function update(payload) {
-    return dispatcher.request("mpris.update", payload || {});
+    payload = payload || {};
+    const wire = {
+      title: payload.title || "",
+      artist: payload.artist || "",
+      album: payload.album || "",
+      playback_status: payload.state || payload.playback_status || "none",
+      position_us: typeof payload.position === "number"
+        ? Math.floor(payload.position * 1000000)
+        : (typeof payload.position_us === "number" ? payload.position_us : 0),
+      tab_id: typeof payload.tab_id === "number" ? payload.tab_id : null,
+    };
+    return dispatcher.request("mpris.publish", wire);
   }
 
   root.qdistroMpris = { update };

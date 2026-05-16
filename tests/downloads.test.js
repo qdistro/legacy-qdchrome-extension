@@ -53,14 +53,13 @@ describe("qdistroDownloads", () => {
       mime: "application/zip", startTime: "2024-01-01T00:00:00Z",
     });
     expect(snap).toEqual({
-      id: 7,
+      download_id: 7,
       url: "https://files.example/x.zip",
       filename: "/tmp/x.zip",
       state: "in_progress",
       total_bytes: 1024,
       bytes_received: 128,
       mime: "application/zip",
-      start_time: "2024-01-01T00:00:00Z",
     });
   });
 
@@ -93,10 +92,10 @@ describe("qdistroDownloads", () => {
     };
     chrome.downloads.onChanged.fire({ id: 11, state: { current: "in_progress" } });
     expect(searchCalls).toEqual([{ id: 11 }]);
-    const frames = outboundOps("downloads.update");
+    const frames = outboundOps("downloads.notify");
     expect(frames).toHaveLength(1);
     expect(frames[0]).toMatchObject({
-      id: 11, state: "in_progress",
+      download_id: 11, state: "in_progress",
       total_bytes: 4096, bytes_received: 512,
     });
   });
@@ -109,7 +108,7 @@ describe("qdistroDownloads", () => {
       totalBytes: 2048, bytesReceived: 2048,
     };
     chrome.downloads.onChanged.fire({ id: 12, state: { current: "complete" } });
-    const frame = outboundOps("downloads.update")[0];
+    const frame = outboundOps("downloads.notify")[0];
     expect(frame.state).toBe("complete");
     expect(frame.bytes_received).toBe(2048);
   });
@@ -122,16 +121,16 @@ describe("qdistroDownloads", () => {
       totalBytes: 0, bytesReceived: 0,
     };
     chrome.downloads.onChanged.fire({ id: 13, state: { current: "interrupted" } });
-    const frame = outboundOps("downloads.update")[0];
+    const frame = outboundOps("downloads.notify")[0];
     expect(frame.state).toBe("interrupted");
-    expect(frame.id).toBe(13);
+    expect(frame.download_id).toBe(13);
   });
 
   it("skips forwarding when downloads.search returns no item", () => {
     env.scope.qdistroDownloads.install();
     nextItem = null; // search returns []
     chrome.downloads.onChanged.fire({ id: 99 });
-    expect(outboundOps("downloads.update")).toHaveLength(0);
+    expect(outboundOps("downloads.notify")).toHaveLength(0);
   });
 
   it("skips forwarding when chrome.runtime.lastError is set on search", () => {
@@ -142,7 +141,7 @@ describe("qdistroDownloads", () => {
       chrome.runtime.lastError = null;
     };
     chrome.downloads.onChanged.fire({ id: 50 });
-    expect(outboundOps("downloads.update")).toHaveLength(0);
+    expect(outboundOps("downloads.notify")).toHaveLength(0);
   });
 
   it("each onChanged event produces an independent request_id", () => {
@@ -151,7 +150,7 @@ describe("qdistroDownloads", () => {
     chrome.downloads.onChanged.fire({ id: 1 });
     nextItem = { id: 1, state: "complete" };
     chrome.downloads.onChanged.fire({ id: 1 });
-    const frames = outboundOps("downloads.update");
+    const frames = outboundOps("downloads.notify");
     expect(frames).toHaveLength(2);
     expect(frames[0].request_id).not.toBe(frames[1].request_id);
   });
@@ -160,10 +159,10 @@ describe("qdistroDownloads", () => {
     env.scope.qdistroDownloads.install();
     nextItem = { id: 1, state: "complete" };
     chrome.downloads.onChanged.fire({ id: 1 });
-    const frame = outboundOps("downloads.update")[0];
+    const frame = outboundOps("downloads.notify")[0];
     // Deliver an error reply — module .catch()s, so no unhandled rejection.
     env.port.deliver({
-      op: "downloads.update.reply",
+      op: "downloads.notify.reply",
       request_id: frame.request_id,
       ok: false,
       error: "policy_denied",

@@ -111,9 +111,9 @@ describe("qdistroPageExtract", () => {
     const frame = lastOutbound("page.extract");
     expect(frame).toBeTruthy();
     expect(frame.destination).toBe("selection");
-    expect(frame.intent_token).toMatchObject({ operation: "page.extract" });
-    // TTL on the minted token is 5000ms per spec/14.
-    expect(frame.intent_token.ttl_ms).toBe(5000);
+    expect(frame.intent_token.op).toBe("page.extract");
+    expect(frame.intent_token.hmac).toMatch(/^[0-9a-f]{64}$/);
+    expect(typeof frame.intent_token.ts).toBe("number");
   });
 
   it("click without selectionText falls back to page destination", async () => {

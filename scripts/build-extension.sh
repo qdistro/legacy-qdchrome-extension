@@ -17,7 +17,8 @@ HERE="$(cd "$(dirname "$0")/.." && pwd)"
 DIST="$HERE/dist"
 
 rm -rf "$DIST"
-mkdir -p "$DIST/chromium/src/modules" "$DIST/firefox"
+mkdir -p "$DIST/chromium/src/modules" "$DIST/chromium/src/content" \
+         "$DIST/firefox/src/content"
 
 # --- Chromium MV3 -----------------------------------------------------
 cp "$HERE/manifest.chromium.json" "$DIST/chromium/manifest.json"
@@ -33,6 +34,7 @@ cp "$HERE/src/port.js"       "$DIST/chromium/src/port.js"
 cp "$HERE/src/dispatcher.js" "$DIST/chromium/src/dispatcher.js"
 cp "$HERE/src/intent.js"     "$DIST/chromium/src/intent.js"
 cp "$HERE"/src/modules/*.js  "$DIST/chromium/src/modules/"
+cp "$HERE"/src/content/*.js  "$DIST/chromium/src/content/"
 cp -r "$HERE/icons"          "$DIST/chromium/icons"
 
 # --- Firefox MV2 ------------------------------------------------------
@@ -44,6 +46,7 @@ cp "$HERE/src/popup.html"        "$DIST/firefox/popup.html"
 cp "$HERE/src/popup.js"          "$DIST/firefox/popup.js"
 cp "$HERE/src/options.html"      "$DIST/firefox/options.html"
 cp "$HERE/src/options.js"        "$DIST/firefox/options.js"
+cp "$HERE"/src/content/*.js      "$DIST/firefox/src/content/"
 cp -r "$HERE/icons"              "$DIST/firefox/icons"
 
 {

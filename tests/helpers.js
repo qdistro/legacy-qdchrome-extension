@@ -47,6 +47,9 @@ function makeEvent() {
 }
 
 export function makeFakeChrome(overrides = {}) {
+  // Capture listeners so background tests can fire synthetic events.
+  const onMessageListeners = [];
+  const onTabRemovedListeners = [];
   const fakes = {
     runtime: {
       id: "test-ext-id",
@@ -54,13 +57,20 @@ export function makeFakeChrome(overrides = {}) {
       connectNative: () => { throw new Error("override connectNative"); },
       onStartup: { addListener: () => {} },
       onInstalled: { addListener: () => {} },
-      onMessage: { addListener: () => {} },
+      onMessage: {
+        addListener: (cb) => onMessageListeners.push(cb),
+        _listeners: onMessageListeners,
+      },
     },
     tabs: {
       query: (q, cb) => cb([]),
       create: (p, cb) => cb({ id: 99, ...p }),
       remove: (ids, cb) => cb(),
       executeScript: (tabId, opts, cb) => cb && cb([{ result: {} }]),
+      onRemoved: {
+        addListener: (cb) => onTabRemovedListeners.push(cb),
+        _listeners: onTabRemovedListeners,
+      },
     },
     cookies: {
       getAll: (q, cb) => cb([]),
@@ -131,6 +141,15 @@ export function loadExtension(opts = {}) {
   evalFile("port.js");
   evalFile("dispatcher.js");
   evalFile("intent.js");
+  // Seed a default session secret so tests that call mint() don't
+  // need to drive a full qdistro.handshake first. Tests can call
+  // setSessionSecretHex(null) (or pass skipSessionSecret) to
+  // exercise the pre-handshake path.
+  if (!opts.skipSessionSecret) {
+    scope.qdistroIntent.setSessionSecretHex(
+      "deadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeefdeadbeef",
+    );
+  }
   evalFile("modules/tabs.js");
   evalFile("modules/pwd.js");
   evalFile("modules/pageExtract.js");
@@ -140,5 +159,40 @@ export function loadExtension(opts = {}) {
   evalFile("modules/notifications.js");
   evalFile("modules/screenlock.js");
 
+  if (opts.loadBackground) {
+    // background.js wraps importScripts in try/catch and falls back
+    // to the MV2 path (assume globals already populated) on
+    // ReferenceError. We don't define importScripts in scope, so the
+    // catch path runs — which is what we want since evalFile already
+    // populated everything.
+    evalFile("background.js");
+  }
+
   return { scope, port: fakePortHandle };
+}
+
+/**
+ * Convenience wrapper that also evals `src/background.js` and
+ * surfaces a sendMessage(req, senderOverride?) helper. Chrome's
+ * runtime.onMessage uses a sendResponse callback (vs Firefox's
+ * Promise-return); the helper wraps the callback in a Promise.
+ */
+export function loadWithBackground(opts = {}) {
+  const env = loadExtension({ ...opts, loadBackground: true });
+  const listeners = env.scope.chrome.runtime.onMessage._listeners;
+  const sendMessage = (req, senderOverride) => {
+    const sender = senderOverride || { id: env.scope.chrome.runtime.id };
+    return new Promise((resolve) => {
+      let resolved = false;
+      const sendResponse = (r) => {
+        if (resolved) return;
+        resolved = true;
+        resolve(r);
+      };
+      for (const cb of listeners) {
+        cb(req, sender, sendResponse);
+      }
+    });
+  };
+  return { ...env, sendMessage };
 }

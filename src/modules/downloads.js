@@ -2,9 +2,14 @@
 //
 // Listens to chrome.downloads.onChanged and forwards state
 // transitions (start / progress / complete / interrupted) to the
-// bridge as `downloads.update`. The bridge re-exposes these on
+// bridge as `downloads.notify`. The bridge re-exposes these on
 // qbus-admin so the admin notification area can show downloads
 // across users.
+//
+// Wire op is `downloads.notify` (not `.update`) per the bridge
+// handler's whitelist: (download_id, filename, state,
+// bytes_received, total_bytes, url, mime). We rename the local
+// `item.id` to `download_id` at snapshot time.
 //
 // Permission: `downloads` (manifest).
 //
@@ -17,14 +22,13 @@
   function snapshot(item) {
     if (!item) return null;
     return {
-      id: item.id,
+      download_id: item.id,
       url: item.url || item.finalUrl || "",
       filename: item.filename || "",
       state: item.state || "in_progress",
       total_bytes: item.totalBytes || 0,
       bytes_received: item.bytesReceived || 0,
       mime: item.mime || "",
-      start_time: item.startTime || null,
     };
   }
 
@@ -36,7 +40,7 @@
         if (api.runtime.lastError) return;
         const item = items && items[0];
         if (!item) return;
-        dispatcher.request("downloads.update", snapshot(item))
+        dispatcher.request("downloads.notify", snapshot(item))
           .catch(() => { /* fire-and-forget */ });
       });
     });

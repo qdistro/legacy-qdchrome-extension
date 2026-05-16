@@ -3,3 +3,8 @@ dist/
 coverage/
 *.log
 .DS_Store
+
+# Private packing key — never commit. Public key is inlined in
+# manifest.chromium.json's "key" field instead.
+keys/qdistro.pem
+keys/qdistro-pubkey.b64

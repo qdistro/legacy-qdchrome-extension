@@ -81,36 +81,42 @@ describe("qdistroMpris", () => {
     expect(reply.stub).toBe(true);
   });
 
-  it("update() emits an outbound mpris.update frame with the payload", () => {
-    void env.scope.qdistroMpris.update({
+  it("update() emits mpris.publish with bridge-shaped fields", async () => {
+    const p = env.scope.qdistroMpris.update({
       state: "playing",
       title: "Some Song",
       artist: "Some Artist",
+      position: 12,
       tab_id: 42,
     });
-    const frame = lastOutbound("mpris.update");
+    const frame = lastOutbound("mpris.publish");
     expect(frame).toBeTruthy();
     expect(frame).toMatchObject({
-      state: "playing",
       title: "Some Song",
       artist: "Some Artist",
+      playback_status: "playing",
+      position_us: 12000000,
       tab_id: 42,
     });
     expect(typeof frame.request_id).toBe("number");
+    env.port.deliver({ op: "mpris.publish.reply", request_id: frame.request_id, ok: true });
+    await p;
   });
 
-  it("update() with an empty/missing payload still ships a frame", () => {
-    void env.scope.qdistroMpris.update();
-    const frame = lastOutbound("mpris.update");
-    expect(frame).toBeTruthy();
-    expect(frame.op).toBe("mpris.update");
+  it("update() defaults playback_status to 'none' and position_us to 0", async () => {
+    const p = env.scope.qdistroMpris.update();
+    const frame = lastOutbound("mpris.publish");
+    expect(frame.playback_status).toBe("none");
+    expect(frame.position_us).toBe(0);
+    env.port.deliver({ op: "mpris.publish.reply", request_id: frame.request_id, ok: true });
+    await p;
   });
 
   it("update() resolves on a bridge reply", async () => {
     const p = env.scope.qdistroMpris.update({ state: "paused" });
-    const frame = lastOutbound("mpris.update");
+    const frame = lastOutbound("mpris.publish");
     env.port.deliver({
-      op: "mpris.update.reply",
+      op: "mpris.publish.reply",
       request_id: frame.request_id,
       ok: true,
     });
@@ -120,9 +126,9 @@ describe("qdistroMpris", () => {
 
   it("update() surfaces a bridge error reply without throwing", async () => {
     const p = env.scope.qdistroMpris.update({ state: "stopped" });
-    const frame = lastOutbound("mpris.update");
+    const frame = lastOutbound("mpris.publish");
     env.port.deliver({
-      op: "mpris.update.reply",
+      op: "mpris.publish.reply",
       request_id: frame.request_id,
       ok: false,
       error: "no_active_player",
