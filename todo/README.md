@@ -17,6 +17,8 @@ bridge handlers ship.
 | [02-policy-enforcement.md](02-policy-enforcement.md) | Extension-side gates | Token mint sites for pwd/pageExtract, per-origin allowlist for notifications |
 | [03-fullscreen-observer.md](03-fullscreen-observer.md) | screenlock wiring | Content-script `fullscreenchange` observer, multi-tab inhibit accounting |
 | [04-ui-tests.md](04-ui-tests.md) | UI/glue coverage | jsdom smoke tests for background.js / popup.js / options.js (236 LOC currently untested) |
+| [05-system-install-chromium.md](05-system-install-chromium.md) | OS-level injection | `ExtensionInstallForcelist` policy, stable manifest `key`, signed crx, system native-host |
+| [06-system-install-firefox-via-this-repo.md](06-system-install-firefox-via-this-repo.md) | OS-level injection (Firefox via MV2 build) | Not recommended; prefer qdfirefox-extension. Documented for completeness. |
 
 ## Status snapshot (as of 2026-05-15)
 
