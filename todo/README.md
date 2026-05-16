@@ -19,6 +19,8 @@ bridge handlers ship.
 | [04-ui-tests.md](04-ui-tests.md) | UI/glue coverage | jsdom smoke tests for background.js / popup.js / options.js (236 LOC currently untested) |
 | [05-system-install-chromium.md](05-system-install-chromium.md) | OS-level injection | `ExtensionInstallForcelist` policy, stable manifest `key`, signed crx, system native-host |
 | [06-system-install-firefox-via-this-repo.md](06-system-install-firefox-via-this-repo.md) | OS-level injection (Firefox via MV2 build) | Not recommended; prefer qdfirefox-extension. Documented for completeness. |
+| [07-bridge-protocol-alignment.md](07-bridge-protocol-alignment.md) | Bridge protocol audit | Discovered + landed alignment with `qdistro_browser_bridge.py` (token shape, op renames, handshake). |
+| [08-page-extract-request-usage.md](08-page-extract-request-usage.md) | `page.extract.request` usage guide | How daemons read tab content; modes, errors, calling pattern, security model |
 
 ## Status snapshot (as of 2026-05-15)
 
