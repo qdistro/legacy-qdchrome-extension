@@ -1,12 +1,14 @@
 # UI / orchestration test coverage
 
-236 LOC across three files is currently exercised by zero tests:
+## Status (2026-05-16)
 
-| File | LOC | Role |
-|------|-----|------|
-| `src/background.js` | 118 | MV3 service-worker entry — startup, install, persistent connectNative, module activation |
-| `src/popup.js` | 65 | Browser-action popup — ping button, "Export session", status pane |
-| `src/options.js` | 53 | Options page — enabled modules, allowlists, intent-token TTL display |
+| File | LOC | Coverage |
+|------|-----|----------|
+| `src/background.js` | 224 | `tests/background.test.js` — runtime.onMessage entry points (sender check, pwd/mpris/screenlock content-script forwards) |
+| `src/popup.js` | 65  | `tests/popup.test.js` (jsdom) — load-time status, ping, cookies-export, no-active-tab, settings link, null-response handling |
+| `src/options.js` | 53 | `tests/options.test.js` (jsdom) — defaults, storage reflection, allowlist parse, save round-trip, Saved-indicator flash |
+
+`background.js` startup paths (`runtime.onStartup` / `onInstalled`) are still untested — the `loadWithBackground` harness only fires `runtime.onMessage`. A follow-up could synthesize the startup events and assert the persistent `connectNative` opens + reconnect-with-backoff fires.
 
 The existing harness (`tests/helpers.js`) loads source via
 `new Function(...)` against a fake `self` global. That works for
