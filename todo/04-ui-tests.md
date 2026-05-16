@@ -7,6 +7,9 @@
 | `src/background.js` | 224 | `tests/background.test.js` — runtime.onMessage entry points (sender check, pwd/mpris/screenlock content-script forwards) |
 | `src/popup.js` | 65  | `tests/popup.test.js` (jsdom) — load-time status, ping, cookies-export, no-active-tab, settings link, null-response handling |
 | `src/options.js` | 53 | `tests/options.test.js` (jsdom) — defaults, storage reflection, allowlist parse, save round-trip, Saved-indicator flash |
+| `src/content/pwd-content.js` | 178 | `tests/pwd-content.test.js` (jsdom) — focus fires `pwd.request_fill`; single-cred auto-fills + dispatches input/change; multi-cred renders the picker; submit-after-unchanged stays silent; submit-after-edit fires `pwd.request_save` |
+| `src/content/mpris-content.js` | 142 | `tests/mpris-content.test.js` (jsdom) — no-media skip; with-media report with metadata fallback; play/pause forces report; dup suppression; inbound do_action for play/pause/seek/next/previous/unknown |
+| `src/content/screenlock-content.js` | 73 | `tests/screenlock-content.test.js` (jsdom) — fullscreen entry classification (video/presentation, nested, paused); exit reports release; pagehide release; webkit-prefixed event |
 
 `background.js` startup paths (`runtime.onStartup` / `onInstalled`) are still untested — the `loadWithBackground` harness only fires `runtime.onMessage`. A follow-up could synthesize the startup events and assert the persistent `connectNative` opens + reconnect-with-backoff fires.
 
