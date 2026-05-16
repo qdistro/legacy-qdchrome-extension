@@ -1,10 +1,7 @@
-// notifications module tests — onClicked/onClosed forwarding,
-// inbound notifications.show, fallback when chrome.notifications is
-// missing.
-//
-// Note on per-origin allowlist: the current source does not enforce
-// one; that policy lives on the bridge per spec/14. These tests
-// pin the wire shape so the daemon can enforce safely.
+// notifications module tests — inbound notifications.show only.
+// Outbound click/close emission was dropped: the bridge has no
+// handler and the chrome.notifications API only sees
+// extension-owned notifications.
 import { describe, it, expect, beforeEach } from "vitest";
 import { loadExtension, makeFakeChrome, makeFakePort } from "./helpers.js";
 
@@ -33,42 +30,16 @@ describe("qdistroNotifications", () => {
     expect(typeof env.scope.qdistroNotifications.install).toBe("function");
   });
 
-  it("install() registers onClicked and onClosed listeners", () => {
+  it("install() does not register onClicked/onClosed listeners", () => {
     env.scope.qdistroNotifications.install();
-    expect(chrome.notifications.onClicked.listeners.length).toBe(1);
-    expect(chrome.notifications.onClosed.listeners.length).toBe(1);
+    expect(chrome.notifications.onClicked.listeners.length).toBe(0);
+    expect(chrome.notifications.onClosed.listeners.length).toBe(0);
   });
 
   it("install() is a no-op when chrome.notifications is missing", () => {
     chrome.notifications = undefined;
     const env2 = loadExtension({ chrome, portHandle: makeFakePort() });
     expect(() => env2.scope.qdistroNotifications.install()).not.toThrow();
-  });
-
-  it("onClicked fires a notifications.event frame with kind:'clicked'", () => {
-    env.scope.qdistroNotifications.install();
-    chrome.notifications.onClicked.fire("nf-1");
-    const frame = lastOutbound("notifications.event");
-    expect(frame).toBeTruthy();
-    expect(frame.kind).toBe("clicked");
-    expect(frame.notification_id).toBe("nf-1");
-  });
-
-  it("onClosed fires a notifications.event frame with kind:'closed' and by_user", () => {
-    env.scope.qdistroNotifications.install();
-    chrome.notifications.onClosed.fire("nf-2", true);
-    const frame = lastOutbound("notifications.event");
-    expect(frame).toBeTruthy();
-    expect(frame.kind).toBe("closed");
-    expect(frame.notification_id).toBe("nf-2");
-    expect(frame.by_user).toBe(true);
-  });
-
-  it("onClosed coerces falsy by_user to boolean false", () => {
-    env.scope.qdistroNotifications.install();
-    chrome.notifications.onClosed.fire("nf-3", undefined);
-    const frame = lastOutbound("notifications.event");
-    expect(frame.by_user).toBe(false);
   });
 
   it("registers an inbound notifications.show handler", () => {
@@ -125,19 +96,12 @@ describe("qdistroNotifications", () => {
     expect(reply.error).toBe("notifications_unavailable");
   });
 
-  it("multiple clicks generate distinct request_ids", () => {
+  it("never emits notifications.event for clicks or closes", async () => {
     env.scope.qdistroNotifications.install();
     chrome.notifications.onClicked.fire("a");
-    chrome.notifications.onClicked.fire("b");
+    chrome.notifications.onClosed.fire("b", true);
+    await new Promise((r) => setTimeout(r, 0));
     const frames = env.port.sent.filter((m) => m.op === "notifications.event");
-    expect(frames).toHaveLength(2);
-    expect(frames[0].request_id).not.toBe(frames[1].request_id);
-  });
-
-  it("does not crash if onClicked is missing on chrome.notifications", () => {
-    chrome.notifications = { onClosed: chrome.notifications.onClosed, create: chrome.notifications.create };
-    const env2 = loadExtension({ chrome, portHandle: makeFakePort() });
-    env2.scope.qdistroPort.connect();
-    expect(() => env2.scope.qdistroNotifications.install()).not.toThrow();
+    expect(frames).toHaveLength(0);
   });
 });
