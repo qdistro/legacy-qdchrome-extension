@@ -1,7 +1,7 @@
 // cookies module tests — cookies.export request shape, intent-token
 // gating (throws without one), chrome.cookies.getAll usage, empty list,
 // audit-log / no-cookies reply handling.
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import { loadExtension, makeFakeChrome, makeFakePort } from "./helpers.js";
 
 describe("qdistroCookies", () => {
@@ -38,6 +38,14 @@ describe("qdistroCookies", () => {
     return env.port.sent.find((m) => m.op === op);
   }
 
+  function waitForOutbound(op) {
+    return vi.waitFor(() => {
+      const m = env.port.sent.find((x) => x.op === op);
+      if (!m) throw new Error(`${op} not yet sent`);
+      return m;
+    }, { timeout: 1000 });
+  }
+
   it("exposes qdistroCookies on the scope", () => {
     expect(env.scope.qdistroCookies).toBeTruthy();
     expect(typeof env.scope.qdistroCookies.exportForUrl).toBe("function");
@@ -59,9 +67,7 @@ describe("qdistroCookies", () => {
   it("emits a cookies.export frame with url, intent_token, and serialized cookies", async () => {
     void env.scope.qdistroCookies.exportForUrl("https://example.com/",
       { operation: "cookies.export", nonce: "n-1" });
-    await new Promise((r) => setTimeout(r, 0));
-    const frame = lastOutbound("cookies.export");
-    expect(frame).toBeTruthy();
+    const frame = await waitForOutbound("cookies.export");
     expect(frame.url).toBe("https://example.com/");
     expect(frame.intent_token).toMatchObject({ operation: "cookies.export" });
     expect(Array.isArray(frame.cookies)).toBe(true);
@@ -71,8 +77,7 @@ describe("qdistroCookies", () => {
   it("serializes cookies to the snake_case wire shape", async () => {
     void env.scope.qdistroCookies.exportForUrl("https://example.com/",
       { operation: "cookies.export" });
-    await new Promise((r) => setTimeout(r, 0));
-    const frame = lastOutbound("cookies.export");
+    const frame = await waitForOutbound("cookies.export");
     expect(frame.cookies[0]).toEqual({
       name: "session", value: "abc",
       domain: ".example.com", path: "/",
@@ -86,8 +91,7 @@ describe("qdistroCookies", () => {
   it("flags session cookies (no expirationDate) with expires=null", async () => {
     void env.scope.qdistroCookies.exportForUrl("https://example.com/",
       { operation: "cookies.export" });
-    await new Promise((r) => setTimeout(r, 0));
-    const frame = lastOutbound("cookies.export");
+    const frame = await waitForOutbound("cookies.export");
     expect(frame.cookies[1].expires).toBeNull();
     expect(frame.cookies[1].session).toBe(true);
   });
@@ -95,8 +99,7 @@ describe("qdistroCookies", () => {
   it("defaults sameSite to 'no_restriction' when the cookie omits it", async () => {
     void env.scope.qdistroCookies.exportForUrl("https://example.com/",
       { operation: "cookies.export" });
-    await new Promise((r) => setTimeout(r, 0));
-    const frame = lastOutbound("cookies.export");
+    const frame = await waitForOutbound("cookies.export");
     expect(frame.cookies[1].same_site).toBe("no_restriction");
   });
 
@@ -104,8 +107,7 @@ describe("qdistroCookies", () => {
     chrome.cookies.getAll = (q, cb) => cb([]);
     const p = env.scope.qdistroCookies.exportForUrl("https://empty.example/",
       { operation: "cookies.export" });
-    await new Promise((r) => setTimeout(r, 0));
-    const frame = lastOutbound("cookies.export");
+    const frame = await waitForOutbound("cookies.export");
     expect(frame.cookies).toEqual([]);
     env.port.deliver({
       op: "cookies.export.reply",
@@ -147,8 +149,7 @@ describe("qdistroCookies", () => {
     // promise stays pending past the default 10s and resolves on reply.
     const p = env.scope.qdistroCookies.exportForUrl("https://example.com/",
       { operation: "cookies.export" });
-    await new Promise((r) => setTimeout(r, 0));
-    const frame = lastOutbound("cookies.export");
+    const frame = await waitForOutbound("cookies.export");
     env.port.deliver({
       op: "cookies.export.reply",
       request_id: frame.request_id,
@@ -162,8 +163,7 @@ describe("qdistroCookies", () => {
   it("surfaces an audit_id from the daemon on successful export", async () => {
     const p = env.scope.qdistroCookies.exportForUrl("https://example.com/",
       { operation: "cookies.export" });
-    await new Promise((r) => setTimeout(r, 0));
-    const frame = lastOutbound("cookies.export");
+    const frame = await waitForOutbound("cookies.export");
     env.port.deliver({
       op: "cookies.export.reply",
       request_id: frame.request_id,

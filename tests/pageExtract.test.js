@@ -37,6 +37,14 @@ describe("qdistroPageExtract", () => {
     return env.port.sent.find((m) => m.op === op);
   }
 
+  function waitForOutbound(op) {
+    return vi.waitFor(() => {
+      const m = env.port.sent.find((x) => x.op === op);
+      if (!m) throw new Error(`${op} not yet sent`);
+      return m;
+    }, { timeout: 1000 });
+  }
+
   it("exposes qdistroPageExtract", () => {
     expect(env.scope.qdistroPageExtract).toBeTruthy();
     expect(typeof env.scope.qdistroPageExtract.installContextMenu).toBe("function");
@@ -74,10 +82,7 @@ describe("qdistroPageExtract", () => {
     void env.scope.qdistroPageExtract.extract(42, "selection", {
       operation: "page.extract", nonce: "n-1",
     });
-    // executeScript runs async; wait a microtask.
-    await new Promise((r) => setTimeout(r, 0));
-    const frame = lastOutbound("page.extract");
-    expect(frame).toBeTruthy();
+    const frame = await waitForOutbound("page.extract");
     expect(frame).toMatchObject({
       selected_text: "highlighted",
       url: "https://page.example/article",
@@ -89,7 +94,9 @@ describe("qdistroPageExtract", () => {
 
   it("executes the capture function in the target tab", async () => {
     void env.scope.qdistroPageExtract.extract(99, "page", null);
-    await new Promise((r) => setTimeout(r, 0));
+    await vi.waitFor(() => {
+      if (executedFns.length === 0) throw new Error("executeScript not yet called");
+    }, { timeout: 1000 });
     expect(executedFns).toHaveLength(1);
     expect(executedFns[0].target).toEqual({ tabId: 99 });
     expect(typeof executedFns[0].func).toBe("function");
@@ -107,9 +114,7 @@ describe("qdistroPageExtract", () => {
     await chrome.contextMenus.onClicked.fire(
       { menuItemId: "qdistro-share-to", selectionText: "hello" },
       { id: 3 });
-    await new Promise((r) => setTimeout(r, 0));
-    const frame = lastOutbound("page.extract");
-    expect(frame).toBeTruthy();
+    const frame = await waitForOutbound("page.extract");
     expect(frame.destination).toBe("selection");
     expect(frame.intent_token.op).toBe("page.extract");
     expect(frame.intent_token.hmac).toMatch(/^[0-9a-f]{64}$/);
@@ -121,15 +126,13 @@ describe("qdistroPageExtract", () => {
     await chrome.contextMenus.onClicked.fire(
       { menuItemId: "qdistro-share-to" },
       { id: 4 });
-    await new Promise((r) => setTimeout(r, 0));
-    const frame = lastOutbound("page.extract");
+    const frame = await waitForOutbound("page.extract");
     expect(frame.destination).toBe("page");
   });
 
   it("surfaces a broker-denied reply (ok:false / error) without throwing", async () => {
     const p = env.scope.qdistroPageExtract.extract(1, "page", null);
-    await new Promise((r) => setTimeout(r, 0));
-    const frame = lastOutbound("page.extract");
+    const frame = await waitForOutbound("page.extract");
     env.port.deliver({
       op: "page.extract.reply",
       request_id: frame.request_id,
@@ -143,8 +146,7 @@ describe("qdistroPageExtract", () => {
 
   it("successful reply resolves with the daemon's stored handle", async () => {
     const p = env.scope.qdistroPageExtract.extract(1, "selection", null);
-    await new Promise((r) => setTimeout(r, 0));
-    const frame = lastOutbound("page.extract");
+    const frame = await waitForOutbound("page.extract");
     env.port.deliver({
       op: "page.extract.reply",
       request_id: frame.request_id,
