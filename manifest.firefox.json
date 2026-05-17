@@ -17,6 +17,7 @@
     "downloads",
     "notifications",
     "contextMenus",
+    "webNavigation",
     "storage",
     "<all_urls>"
   ],
