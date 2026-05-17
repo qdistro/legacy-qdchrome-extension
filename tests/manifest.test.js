@@ -74,4 +74,69 @@ describe("manifest.firefox.json permissions (P04-E)", () => {
   it("MV2 permissions list contains <all_urls>", () => {
     expect(m.permissions).toContain("<all_urls>");
   });
+  // MV2 has no `scripting` permission (that's MV3-only) — the
+  // legacy manifest uses `tabs` + `activeTab` to inject content
+  // scripts. Documented for the next reviewer who notices the
+  // asymmetry with the chromium MV3 manifest.
+  it("MV2 has tabs + activeTab as inject-script substitute", () => {
+    expect(m.permissions).toContain("tabs");
+    expect(m.permissions).toContain("activeTab");
+  });
+});
+
+// P04 fix-pass S4 (test-integrity): closed-set assertions so a
+// future commit silently adding a broad permission fails the test.
+describe("chrome extension manifests — closed permission set", () => {
+  const chromiumExpected = new Set([
+    "nativeMessaging",
+    "tabs",
+    "activeTab",
+    "cookies",
+    "downloads",
+    "notifications",
+    "contextMenus",
+    "scripting",
+    "webNavigation",
+    "storage",
+  ]);
+  const firefoxMv2Expected = new Set([
+    "nativeMessaging",
+    "tabs",
+    "activeTab",
+    "cookies",
+    "downloads",
+    "notifications",
+    "contextMenus",
+    "webNavigation",
+    "storage",
+    "<all_urls>",
+  ]);
+
+  it("manifest.chromium.json permissions are exactly the expected set", () => {
+    const m = load("manifest.chromium.json");
+    const actual = new Set(m.permissions || []);
+    for (const p of actual) {
+      expect(
+        chromiumExpected.has(p),
+        `unexpected permission ${p} in chromium manifest — update the allowlist after security review`,
+      ).toBe(true);
+    }
+    for (const p of chromiumExpected) {
+      expect(actual.has(p), `missing permission ${p}`).toBe(true);
+    }
+  });
+
+  it("manifest.firefox.json (MV2) permissions are exactly the expected set", () => {
+    const m = load("manifest.firefox.json");
+    const actual = new Set(m.permissions || []);
+    for (const p of actual) {
+      expect(
+        firefoxMv2Expected.has(p),
+        `unexpected permission ${p} in MV2 manifest — update the allowlist after security review`,
+      ).toBe(true);
+    }
+    for (const p of firefoxMv2Expected) {
+      expect(actual.has(p), `missing permission ${p}`).toBe(true);
+    }
+  });
 });
