@@ -41,3 +41,37 @@ describe("manifest.firefox.json content_scripts", () => {
     assertSplit(load("manifest.firefox.json"));
   });
 });
+
+// P04-E parity check — P0-5 fix. The pwd.fill content script
+// needs scripting + webNavigation in MV3 to inject into
+// freshly-navigated frames; the MV2 (legacy Firefox) manifest needs
+// webNavigation as a permission. Asserted per-manifest because the
+// wire-protocol coverage on both must match.
+describe("manifest.chromium.json permissions (P04-E)", () => {
+  const m = load("manifest.chromium.json");
+  it("declares nativeMessaging", () => {
+    expect(m.permissions).toContain("nativeMessaging");
+  });
+  it("declares scripting (MV3)", () => {
+    expect(m.permissions).toContain("scripting");
+  });
+  it("declares webNavigation", () => {
+    expect(m.permissions).toContain("webNavigation");
+  });
+  it("MV3 host_permissions covers all urls", () => {
+    expect(m.host_permissions).toContain("<all_urls>");
+  });
+});
+
+describe("manifest.firefox.json permissions (P04-E)", () => {
+  const m = load("manifest.firefox.json");
+  it("declares nativeMessaging", () => {
+    expect(m.permissions).toContain("nativeMessaging");
+  });
+  it("declares webNavigation", () => {
+    expect(m.permissions).toContain("webNavigation");
+  });
+  it("MV2 permissions list contains <all_urls>", () => {
+    expect(m.permissions).toContain("<all_urls>");
+  });
+});

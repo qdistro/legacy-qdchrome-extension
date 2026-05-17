@@ -95,6 +95,26 @@ describe("qdistroPwd", () => {
     expect(r.error).toBe("credential_not_found");
   });
 
+  // P04-C — admin-deny round-trip. The compositor popup replied
+  // "no"; the bridge propagated autofill_denied; the dispatcher
+  // surfaces it as ok:false so the content script can show a small
+  // "fill blocked by admin" toast.
+  it("pwd.fill surfaces autofill_denied (P04-C deny)", async () => {
+    const p = env.scope.qdistroPwd.fill(
+      "https://example.com/login", null,
+      { operation: "pwd.fill" });
+    const frame = lastOutbound("pwd.fill");
+    env.port.deliver({
+      op: "pwd.fill.reply",
+      request_id: frame.request_id,
+      ok: false,
+      error: "autofill_denied",
+    });
+    const r = await p;
+    expect(r.ok).toBe(false);
+    expect(r.error).toBe("autofill_denied");
+  });
+
   it("pwd.fill surfaces vault_locked errors from the bridge", async () => {
     const p = env.scope.qdistroPwd.fill(
       "https://example.com/login", null,
