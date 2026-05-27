@@ -3,10 +3,12 @@
 // Two flows:
 //
 //   1. Bridge-initiated request (daemon → bridge → extension):
-//      bridge sends `{op: "tabs.list", request_id: N}` over the port.
+//      bridge sends `{op: "tabs.list", request_id: "rN-hex"}` over
+//      the port. request_id is a string (e.g. "r1-abc123"); the
+//      dispatcher accepts any truthy value (`!= null`).
 //      Dispatcher routes by op to a registered handler in
 //      src/modules/, awaits the handler's reply payload, then sends
-//      `{op: "tabs.list.reply", request_id: N, ...payload}` back.
+//      `{op: "tabs.list.reply", request_id: "rN-hex", ...payload}` back.
 //      Per spec/14 Phase-9b §"Timeout behavior when MV3 service worker
 //      suspends" — the bridge handles retry; we just respond.
 //
@@ -16,9 +18,11 @@
 //      keeps a Map<request_id, {resolve,reject,timer}> until a matching
 //      `.reply` arrives.
 //
-// Borrowed from KDE Plasma's `SettingsManager.executeMethod` shape — a
-// single request_id table indexed by integer, timeouts per-request,
-// dispose on disconnect.
+// Borrowed from KDE Plasma's `SettingsManager.executeMethod` shape —
+// outbound requests use integer request_ids (from nextRequestId++);
+// inbound bridge-initiated requests use string request_ids (e.g.
+// "r1-abc123"). Both types are accepted — the dispatcher checks
+// `!= null`, not typeof. Timeouts per-request, dispose on disconnect.
 //
 // @ts-check
 (function (root) {
@@ -47,7 +51,7 @@
     if (!op) return;
 
     // Reply to an outbound request we initiated.
-    if (op.endsWith(".reply") && typeof msg.request_id === "number") {
+    if (op.endsWith(".reply") && msg.request_id != null) {
       const slot = pending.get(msg.request_id);
       if (!slot) {
         log("orphan reply", op, msg.request_id);
@@ -63,7 +67,7 @@
     const h = handlers.get(op);
     if (!h) {
       log("no handler for inbound op", op);
-      if (typeof msg.request_id === "number") {
+      if (msg.request_id != null) {
         port.send({
           op: `${op}.reply`,
           request_id: msg.request_id,
@@ -75,7 +79,7 @@
     }
     try {
       const body = (await h(msg)) || {};
-      if (typeof msg.request_id === "number") {
+      if (msg.request_id != null) {
         port.send({
           op: `${op}.reply`,
           request_id: msg.request_id,
@@ -85,7 +89,7 @@
       }
     } catch (e) {
       log("handler threw", op, e);
-      if (typeof msg.request_id === "number") {
+      if (msg.request_id != null) {
         port.send({
           op: `${op}.reply`,
           request_id: msg.request_id,

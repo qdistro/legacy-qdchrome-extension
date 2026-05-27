@@ -60,7 +60,7 @@
     // Heartbeat is handled inline so it survives even if the
     // dispatcher hasn't loaded yet (worker cold start race).
     if (msg && msg.op === "qdistro.heartbeat") {
-      send({ op: "qdistro.heartbeat.ack", echo: msg.echo || null });
+      send({ op: "qdistro.heartbeat.ack", request_id: msg.request_id, echo: msg.echo || null });
       return;
     }
     for (const cb of state.listeners) {
