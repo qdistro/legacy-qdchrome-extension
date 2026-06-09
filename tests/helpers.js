@@ -68,6 +68,7 @@ export function makeFakeChrome(overrides = {}) {
       query: (q, cb) => cb([]),
       create: (p, cb) => cb({ id: 99, ...p }),
       remove: (ids, cb) => cb(),
+      get: (id, cb) => cb({ id, url: "https://example.com/" }),
       executeScript: (tabId, opts, cb) => cb && cb([{ result: {} }]),
       onRemoved: {
         addListener: (cb) => onTabRemovedListeners.push(cb),
@@ -90,7 +91,10 @@ export function makeFakeChrome(overrides = {}) {
       create: (def, cb) => { cb && cb(); },
       onClicked: makeEvent(),
     },
-    storage: { local: { get: (k, cb) => cb({}), set: (v, cb) => cb && cb() } },
+    storage: {
+      local: { get: (k, cb) => cb({}), set: (v, cb) => cb && cb() },
+      onChanged: makeEvent(),
+    },
     scripting: { executeScript: () => Promise.resolve([{ result: {} }]) },
   };
   return Object.assign(fakes, overrides);
@@ -144,6 +148,7 @@ export function loadExtension(opts = {}) {
   evalFile("port.js");
   evalFile("dispatcher.js");
   evalFile("intent.js");
+  evalFile("gate.js");
   // Seed a default session secret so tests that call mint() don't
   // need to drive a full qdistro.handshake first. Tests can call
   // setSessionSecretHex(null) (or pass skipSessionSecret) to

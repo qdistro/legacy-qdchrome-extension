@@ -33,6 +33,7 @@ cp "$HERE/src/api.js"        "$DIST/chromium/src/api.js"
 cp "$HERE/src/port.js"       "$DIST/chromium/src/port.js"
 cp "$HERE/src/dispatcher.js" "$DIST/chromium/src/dispatcher.js"
 cp "$HERE/src/intent.js"     "$DIST/chromium/src/intent.js"
+cp "$HERE/src/gate.js"       "$DIST/chromium/src/gate.js"
 cp "$HERE"/src/modules/*.js  "$DIST/chromium/src/modules/"
 cp "$HERE"/src/content/*.js  "$DIST/chromium/src/content/"
 cp -r "$HERE/icons"          "$DIST/chromium/icons"
@@ -56,6 +57,7 @@ cp -r "$HERE/icons"              "$DIST/firefox/icons"
         "$HERE/src/port.js" \
         "$HERE/src/dispatcher.js" \
         "$HERE/src/intent.js" \
+        "$HERE/src/gate.js" \
         "$HERE/src/modules/tabs.js" \
         "$HERE/src/modules/pwd.js" \
         "$HERE/src/modules/pageExtract.js" \

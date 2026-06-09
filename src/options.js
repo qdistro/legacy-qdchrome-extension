@@ -1,7 +1,10 @@
 // Options page. Persists per-module enabled flags and an
 // origin-allowlist string into chrome.storage.local. The background
-// reads these at boot (and re-reads on storage.onChanged) to gate
-// module registration / event-listener install.
+// gate (src/gate.js) reads these at boot and re-reads on
+// storage.onChanged to gate dispatcher ops + background message
+// handling: a disabled module's wire ops are refused, and (when the
+// allowlist is non-empty) content-script ops are restricted to the
+// listed origins.
 //
 // The storage shape:
 //   {

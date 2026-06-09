@@ -27,6 +27,7 @@ try {
     "src/port.js",
     "src/dispatcher.js",
     "src/intent.js",
+    "src/gate.js",
     "src/modules/tabs.js",
     "src/modules/pwd.js",
     "src/modules/pageExtract.js",
@@ -151,6 +152,17 @@ function pwdSenderUrl(req, sender) {
   if (req && typeof req.url === "string" && req.url && req.url !== tabUrl) {
     return { ok: false, error: "url_mismatch" };
   }
+  // Origin allowlist (options page): when set, only run on listed
+  // origins. With all_frames:true the authoritative origin for the
+  // allowlist is the SENDING FRAME's URL (sender.url), not the
+  // top-level tab URL — a password form in an allowlisted iframe must
+  // pass, and a non-allowlisted iframe must be refused regardless of
+  // the top frame (codex finding #3). Fall back to tabUrl when the
+  // frame URL is unavailable.
+  const frameUrl = (sender && sender.url) || tabUrl;
+  if (self.qdistroGate && !self.qdistroGate.isOriginAllowed(frameUrl)) {
+    return { ok: false, error: "origin_not_allowed" };
+  }
   return { ok: true, url: tabUrl };
 }
 
@@ -173,6 +185,21 @@ if (api && api.runtime && api.runtime.onMessage) {
         if (!req || typeof req !== "object") {
           sendResponse({ ok: false, error: "bad_request" });
           return;
+        }
+        // Options-page module gate: if the user disabled the feature
+        // that owns this req.kind, refuse it here — before any intent
+        // is minted or the bridge is touched. status/ping carry no
+        // module and always pass. (The dispatcher also gates the wire
+        // op, but failing here gives the caller a clean, specific
+        // error instead of a generic dispatcher rejection.) Await the
+        // gate's first storage read for module-mapped kinds so a saved
+        // disable wins even on a cold-start message (codex finding #1).
+        if (self.qdistroGate && self.qdistroGate.kindModule(req.kind)) {
+          if (!self.qdistroGate.isLoaded()) await self.qdistroGate.ready();
+          if (!self.qdistroGate.kindEnabled(req.kind)) {
+            sendResponse({ ok: false, error: "module_disabled" });
+            return;
+          }
         }
         switch (req.kind) {
           case "status": {
@@ -202,6 +229,10 @@ if (api && api.runtime && api.runtime.onMessage) {
             const url = await activeTabUrl();
             if (!url) {
               sendResponse({ ok: false, error: "no_active_tab" });
+              return;
+            }
+            if (self.qdistroGate && !self.qdistroGate.isOriginAllowed(url)) {
+              sendResponse({ ok: false, error: "origin_not_allowed" });
               return;
             }
             const intent = await self.qdistroIntent.mint("cookies.export");
@@ -272,6 +303,14 @@ if (api && api.runtime && api.runtime.onMessage) {
             return;
           }
           case "mpris.report_update": {
+            // Origin allowlist (options page): the authoritative origin
+            // is the real frame URL set by the browser (sender.url),
+            // not the page-supplied req.url. Fall back to the tab URL.
+            const mprisUrl = sender.url || (sender.tab && sender.tab.url) || "";
+            if (self.qdistroGate && !self.qdistroGate.isOriginAllowed(mprisUrl)) {
+              sendResponse({ ok: false, error: "origin_not_allowed" });
+              return;
+            }
             // Fire-and-forget — the page polls 1Hz; we don't want
             // the content script blocked waiting on a wire ack.
             self.qdistroMpris.update({
@@ -289,6 +328,11 @@ if (api && api.runtime && api.runtime.onMessage) {
             return;
           }
           case "screenlock.report_inhibit": {
+            const slUrl = sender.url || (sender.tab && sender.tab.url) || "";
+            if (self.qdistroGate && !self.qdistroGate.isOriginAllowed(slUrl)) {
+              sendResponse({ ok: false, error: "origin_not_allowed" });
+              return;
+            }
             const tabId = sender.tab && sender.tab.id;
             if (typeof tabId === "number") screenlockTabs.add(tabId);
             self.qdistroScreenlock.inhibit(req.reason || "fullscreen_video")
@@ -297,6 +341,9 @@ if (api && api.runtime && api.runtime.onMessage) {
             return;
           }
           case "screenlock.report_release": {
+            // No origin gate on release: a release must always be able
+            // to undo a prior inhibit even if the allowlist changed
+            // mid-session (fail-open on the safety-undo direction).
             const tabId = sender.tab && sender.tab.id;
             if (typeof tabId === "number") screenlockTabs.delete(tabId);
             self.qdistroScreenlock.release(req.reason || "fullscreen_exit")
