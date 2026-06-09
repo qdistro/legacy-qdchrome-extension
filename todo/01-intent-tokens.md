@@ -99,7 +99,7 @@ lands.
 
 ## Cross-references
 
-- Bridge side: `../../todo/browser/01-bridge-phase9.md` §9d.
+- Bridge side: `../../qdistro/doc/browser.md` §Intent tokens.
 - Threat scope is unchanged from `qdistro/doc/browser.md` §Intent
   tokens: defends against replay + page-script-triggered calls,
   does not defend against a compromised extension or browser.

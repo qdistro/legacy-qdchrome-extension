@@ -7,7 +7,7 @@ bridge or leave wiring stubbed. This directory documents the
 follow-ups.
 
 The bridge counterpart of each item lives in
-`../../todo/browser/01-bridge-phase9.md` (relative to qdistro-org).
+`../../qdistro/doc/browser.md` (relative to qdistro-org).
 These extension tracks unblock the corresponding bridge phases as the
 bridge handlers ship.
 
@@ -20,7 +20,9 @@ bridge handlers ship.
 | [05-system-install-chromium.md](05-system-install-chromium.md) | OS-level injection | `ExtensionInstallForcelist` policy, stable manifest `key`, signed crx, system native-host |
 | [06-system-install-firefox-via-this-repo.md](06-system-install-firefox-via-this-repo.md) | OS-level injection (Firefox via MV2 build) | Not recommended; prefer qdfirefox-extension. Documented for completeness. |
 | [07-bridge-protocol-alignment.md](07-bridge-protocol-alignment.md) | Bridge protocol audit | Discovered + landed alignment with `qdistro_browser_bridge.py` (token shape, op renames, handshake). |
-| [08-page-extract-request-usage.md](08-page-extract-request-usage.md) | `page.extract.request` usage guide | How daemons read tab content; modes, errors, calling pattern, security model |
+
+`page.extract.request` usage is product documentation now:
+`../../qdistro/doc/browser-page-extract.md`.
 
 ## Status snapshot (as of 2026-05-15)
 
