@@ -1,11 +1,26 @@
 // pwd module — 9a ops.
 //
-// Two flows:
+// The pwd autofill is a TWO-PHASE flow by design (see
+// doc/password-manager.md, user-intent attestation):
 //
-//  - pwd.fill (extension-initiated): on focus of <input type="password">,
-//    a content script messages the background which calls
+//  - pwd.fill (phase 1, extension-initiated): on a trusted user
+//    gesture on an <input type="password">, a content script messages
+//    the background which calls
 //    qdistroDispatcher.request("pwd.fill", {url, username?, intent_token}).
-//    Bridge replies with `{credentials: [...]}` or `{error: ...}`.
+//    The daemon replies with credential METADATA ONLY — `{credentials:
+//    [{username, url}, ...], fill_token}`. No password is released yet.
+//
+//  - pwd.fill_confirm (phase 2, extension-initiated): after the user
+//    PICKS one credential from the metadata list (another trusted
+//    gesture), the content script asks for the actual password via
+//    qdistroDispatcher.request("pwd.fill_confirm", {url, username,
+//    fill_token, intent_token}). The daemon validates the single-use
+//    fill_token (origin/username/peer-bound) and only then returns the
+//    password in `{credentials: [{username, password, url}]}`.
+//
+//    Calling `fill` alone yields rows with NO `password` field, so the
+//    second phase is mandatory — never treat a `fill` row as if it
+//    carried a secret.
 //
 //  - pwd.save (extension-initiated): on form submit with new
 //    credentials, same path with `{url, username, password, intent_token}`.
@@ -27,6 +42,12 @@
     });
   }
 
+  async function fillConfirm(url, username, fillToken, intentToken) {
+    return await dispatcher.request("pwd.fill_confirm", {
+      url, username, fill_token: fillToken, intent_token: intentToken,
+    });
+  }
+
   async function save(url, username, password, intentToken) {
     return await dispatcher.request("pwd.save", {
       url, username, password, intent_token: intentToken,
@@ -34,5 +55,5 @@
   }
 
   // No inbound handlers — pwd is purely extension-initiated.
-  root.qdistroPwd = { fill, save };
+  root.qdistroPwd = { fill, fillConfirm, save };
 })(typeof self !== "undefined" ? self : globalThis);

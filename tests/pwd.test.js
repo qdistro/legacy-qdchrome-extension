@@ -37,7 +37,58 @@ describe("qdistroPwd", () => {
   it("exposes the qdistroPwd module on the scope", () => {
     expect(env.scope.qdistroPwd).toBeTruthy();
     expect(typeof env.scope.qdistroPwd.fill).toBe("function");
+    expect(typeof env.scope.qdistroPwd.fillConfirm).toBe("function");
     expect(typeof env.scope.qdistroPwd.save).toBe("function");
+  });
+
+  // --- pwd.fill_confirm (phase 2) ----------------------------------
+
+  it("pwd.fill_confirm sends url, username, fill_token, and intent_token", async () => {
+    const p = env.scope.qdistroPwd.fillConfirm(
+      "https://example.com/login", "alice", "ft-abc", {
+        operation: "pwd.fill_confirm", nonce: "n-c1",
+      });
+    const frame = autoReply("pwd.fill_confirm", {
+      credentials: [{ username: "alice", password: "s3cret" }],
+    });
+    expect(frame).toBeTruthy();
+    expect(frame.url).toBe("https://example.com/login");
+    expect(frame.username).toBe("alice");
+    expect(frame.fill_token).toBe("ft-abc");
+    expect(frame.intent_token).toMatchObject({ operation: "pwd.fill_confirm" });
+    await p;
+  });
+
+  it("pwd.fill_confirm resolves with the released password", async () => {
+    const p = env.scope.qdistroPwd.fillConfirm(
+      "https://example.com/login", "alice", "ft-abc",
+      { operation: "pwd.fill_confirm" });
+    const frame = lastOutbound("pwd.fill_confirm");
+    env.port.deliver({
+      op: "pwd.fill_confirm.reply",
+      request_id: frame.request_id,
+      ok: true,
+      credentials: [{ username: "alice", password: "s3cret", url: "https://example.com" }],
+    });
+    const r = await p;
+    expect(r.ok).toBe(true);
+    expect(r.credentials[0]).toMatchObject({ username: "alice", password: "s3cret" });
+  });
+
+  it("pwd.fill_confirm surfaces an invalid/expired token as ok:false", async () => {
+    const p = env.scope.qdistroPwd.fillConfirm(
+      "https://example.com/login", "alice", "stale",
+      { operation: "pwd.fill_confirm" });
+    const frame = lastOutbound("pwd.fill_confirm");
+    env.port.deliver({
+      op: "pwd.fill_confirm.reply",
+      request_id: frame.request_id,
+      ok: false,
+      error: "invalid_token",
+    });
+    const r = await p;
+    expect(r.ok).toBe(false);
+    expect(r.error).toBe("invalid_token");
   });
 
   it("pwd.fill sends url, username, and intent_token", async () => {

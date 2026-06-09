@@ -233,6 +233,31 @@ if (api && api.runtime && api.runtime.onMessage) {
             sendResponse({ ok: true, response: r });
             return;
           }
+          case "pwd.request_fill_confirm": {
+            // Phase 2 of the two-phase fill. The user has picked one
+            // credential from the metadata list returned by
+            // pwd.request_fill; redeem the single-use fill_token for
+            // the actual password. As with request_fill the URL is
+            // derived from sender.tab.url (never the page-supplied
+            // req.url), and the username/fill_token must be present —
+            // the daemon binds the token to origin+username+peer.
+            const su = pwdSenderUrl(req, sender);
+            if (!su.ok) { sendResponse({ ok: false, error: su.error }); return; }
+            if (typeof req.username !== "string" || !req.username
+                || typeof req.fill_token !== "string" || !req.fill_token) {
+              sendResponse({ ok: false, error: "invalid_request" });
+              return;
+            }
+            const intent = await self.qdistroIntent.mint("pwd.fill_confirm");
+            const r = await self.qdistroPwd.fillConfirm(
+              su.url,
+              req.username,
+              req.fill_token,
+              intent,
+            );
+            sendResponse({ ok: true, response: r });
+            return;
+          }
           case "pwd.request_save": {
             const su = pwdSenderUrl(req, sender);
             if (!su.ok) { sendResponse({ ok: false, error: su.error }); return; }
