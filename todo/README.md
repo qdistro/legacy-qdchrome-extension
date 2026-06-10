@@ -18,8 +18,12 @@ bridge handlers ship.
 | [03-fullscreen-observer.md](03-fullscreen-observer.md) | screenlock wiring | Content-script `fullscreenchange` observer, multi-tab inhibit accounting |
 | [04-ui-tests.md](04-ui-tests.md) | UI/glue coverage | jsdom smoke tests for background.js / popup.js / options.js (236 LOC currently untested) |
 | [05-system-install-chromium.md](05-system-install-chromium.md) | OS-level injection | `ExtensionInstallForcelist` policy, stable manifest `key`, signed crx, system native-host |
-| [06-system-install-firefox-via-this-repo.md](06-system-install-firefox-via-this-repo.md) | OS-level injection (Firefox via MV2 build) | Not recommended; prefer qdfirefox-extension. Documented for completeness. |
 | [07-bridge-protocol-alignment.md](07-bridge-protocol-alignment.md) | Bridge protocol audit | Discovered + landed alignment with `qdistro_browser_bridge.py` (token shape, op renames, handshake). |
+
+This repo is Chromium-only. The Firefox extension is canonical in
+`../../qdfirefox-extension` (standalone) and
+`../../qdistro/browser_bridge/extension` (bundled); the former
+Firefox-MV2-via-this-repo track was dropped and its build target removed.
 
 `page.extract.request` usage is product documentation now:
 `../../qdistro/doc/browser-page-extract.md`.

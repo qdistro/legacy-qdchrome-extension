@@ -1,5 +1,5 @@
-// qdistro browser-bridge background — MV3 service worker (also
-// runs as MV2 background page in Firefox). Boot sequence:
+// qdistro browser-bridge background — Chromium MV3 service worker.
+// Boot sequence:
 //
 //   1. importScripts: load api shim, port manager, dispatcher,
 //      intent, then every per-feature module under modules/.
@@ -13,9 +13,11 @@
 //      connectNative (one host per browser session per spec/14).
 //
 // importScripts is the MV3-correct way to compose a service worker.
-// Firefox MV2 background pages don't have importScripts; the
-// build script in scripts/build-extension.sh concatenates the
-// sources into a single background.js for Firefox MV2.
+// The call is wrapped in try/catch so environments without it (the
+// vitest harness, which pre-loads the module globals directly) skip
+// the import and reuse the already-defined globals. This repo is
+// Chromium-only; the Firefox extensions live in their own canonical
+// repos (see ../qdistro/doc/browser.md "Firefox extension artifacts").
 //
 // @ts-check
 
@@ -38,8 +40,9 @@ try {
     "src/modules/screenlock.js",
   );
 } catch (_) {
-  // MV2 path (Firefox background page) — the build concatenates,
-  // so all globals are already defined.
+  // No importScripts in scope (e.g. the vitest harness, which loads
+  // every module's globals directly before evaluating this file) —
+  // the globals are already defined, so nothing to import.
 }
 
 const api = self.qdistroApi;

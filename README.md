@@ -79,7 +79,6 @@ The extension requests broad permissions because it is a bridge adapter:
 ```
 qdchrome-extension/
 ├── manifest.chromium.json
-├── manifest.firefox.json        # legacy compatibility build target
 ├── src/
 │   ├── api.js                   # browser/chrome binding layer
 │   ├── port.js                  # native-messaging connection
@@ -106,6 +105,24 @@ qdchrome-extension/
 │   └── install-system-policy.sh
 └── tests/
 ```
+
+## Chromium-only — no Firefox build here
+
+This repo builds the Chromium-family extension only. It used to also emit a
+Firefox MV2 `dist/firefox.xpi` under gecko id `qdistro@qdistro.local`, but that
+collided with the **bundled** Firefox extension shipped from
+`../qdistro/browser_bridge/extension` (a different codebase under the *same*
+id). To canonicalize the Firefox artifacts, that target was removed. Ship
+Firefox from one of its two canonical sources instead:
+
+- **standalone** — [qdfirefox-extension](../qdfirefox-extension), id
+  `qdistro-firefox@qdistro.local` (MV3, first-class containers).
+- **bundled** — `../qdistro/browser_bridge/extension`, id
+  `qdistro@qdistro.local` (the MV2 build the browser-bridge installer
+  authorizes by default).
+
+See `../qdistro/doc/browser.md` ("Firefox extension artifacts") for the full
+bundled-vs-standalone contract.
 
 ## Related repos
 
