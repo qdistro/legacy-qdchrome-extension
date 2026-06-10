@@ -69,6 +69,7 @@ export function makeFakeChrome(overrides = {}) {
       create: (p, cb) => cb({ id: 99, ...p }),
       remove: (ids, cb) => cb(),
       get: (id, cb) => cb({ id, url: "https://example.com/" }),
+      sendMessage: (tabId, message, cb) => cb && cb({ ok: true, action: message && message.action }),
       executeScript: (tabId, opts, cb) => cb && cb([{ result: {} }]),
       onRemoved: {
         addListener: (cb) => onTabRemovedListeners.push(cb),

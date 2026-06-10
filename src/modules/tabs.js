@@ -62,6 +62,27 @@
     });
   }
 
+  // Deliver a one-shot message to a content script in `tabId` and
+  // resolve with its reply. Used by the mpris module to forward an
+  // inbound `mpris.control` op down to the originating tab's
+  // mpris-content.js as `mpris.do_action`. Rejects (rather than
+  // hangs) when the tab has no receiving content script — chrome
+  // surfaces that as runtime.lastError ("Could not establish
+  // connection. Receiving end does not exist.").
+  function sendMessageToTab(tabId, message) {
+    return new Promise((resolve, reject) => {
+      try {
+        api.tabs.sendMessage(tabId, message, (reply) => {
+          const err = api.runtime.lastError;
+          if (err) return reject(new Error(err.message));
+          resolve(reply);
+        });
+      } catch (e) {
+        reject(e instanceof Error ? e : new Error(String(e)));
+      }
+    });
+  }
+
   dispatcher.register("tabs.list", async (_msg) => {
     const tabs = await queryTabs({});
     return { tabs: tabs.map(serialize) };
@@ -83,5 +104,7 @@
   });
 
   // Expose for tests.
-  root.qdistroTabs = { serialize, queryTabs, createTab, removeTabs };
+  root.qdistroTabs = {
+    serialize, queryTabs, createTab, removeTabs, sendMessageToTab,
+  };
 })(typeof self !== "undefined" ? self : globalThis);

@@ -1,19 +1,28 @@
 // mpris module tests.
 //
-// The current implementation is stub-grade: it registers an inbound
-// `mpris.control` handler (play/pause/next/prev) that just acks, and
-// exposes an outbound `update()` helper for the (future) content-script
-// observer. Tests pin the wire shape so the bridge side can land
-// independently — when the real implementation arrives, these still
-// catch regressions on the protocol surface.
+// `mpris.control` is a REAL inbound op: the admin media widget drives
+// an org.mpris.MediaPlayer2 control which the daemon routes back to the
+// originating tab via the bridge, and this module forwards it down to
+// that tab's content script as `mpris.do_action`, returning the content
+// script's real result (no stub ack). Outbound `update()` translates a
+// content-script snapshot into the bridge's `mpris.publish` wire shape.
 import { describe, it, expect, beforeEach } from "vitest";
 import { loadExtension, makeFakeChrome, makeFakePort } from "./helpers.js";
 
 describe("qdistroMpris", () => {
   let env;
+  let sent; // captured tabs.sendMessageToTab calls
+
   beforeEach(() => {
     env = loadExtension({ chrome: makeFakeChrome(), portHandle: makeFakePort() });
     env.scope.qdistroPort.connect();
+    // Capture forwarded do_action messages; default to a content-script
+    // success reply. Individual tests override the reply/throw.
+    sent = [];
+    env.scope.qdistroTabs.sendMessageToTab = async (tabId, message) => {
+      sent.push({ tabId, message });
+      return { ok: true, action: message.action };
+    };
   });
 
   function lastOutbound(op) {
@@ -29,56 +38,87 @@ describe("qdistroMpris", () => {
     expect(env.scope.qdistroDispatcher.handlers.has("mpris.control")).toBe(true);
   });
 
-  it("handles mpris.control 'play' and replies ok", async () => {
+  it("forwards mpris.control to the target tab as mpris.do_action", async () => {
     await env.scope.qdistroDispatcher.handleInbound({
-      op: "mpris.control", request_id: 1, action: "play",
+      op: "mpris.control", request_id: 1, action: "play", tab_id: 7,
     });
-    const reply = lastOutbound("mpris.control.reply");
-    expect(reply).toBeTruthy();
-    expect(reply.ok).toBe(true);
-    expect(reply.action).toBe("play");
-    expect(reply.request_id).toBe(1);
+    expect(sent).toHaveLength(1);
+    expect(sent[0].tabId).toBe(7);
+    expect(sent[0].message).toEqual({ kind: "mpris.do_action", action: "play" });
   });
 
-  it("handles mpris.control 'pause'", async () => {
+  it("returns the content script's reply, not a stub", async () => {
+    env.scope.qdistroTabs.sendMessageToTab = async () =>
+      ({ ok: true, action: "pause" });
     await env.scope.qdistroDispatcher.handleInbound({
-      op: "mpris.control", request_id: 2, action: "pause",
+      op: "mpris.control", request_id: 2, action: "pause", tab_id: 7,
     });
     const reply = lastOutbound("mpris.control.reply");
+    expect(reply.ok).toBe(true);
     expect(reply.action).toBe("pause");
+    expect(reply.request_id).toBe(2);
+    expect(reply.stub).toBeUndefined();
   });
 
-  it("handles mpris.control 'next'", async () => {
+  it("forwards the seek value to the tab", async () => {
     await env.scope.qdistroDispatcher.handleInbound({
-      op: "mpris.control", request_id: 3, action: "next",
+      op: "mpris.control", request_id: 3, action: "seek", value: 42, tab_id: 7,
+    });
+    expect(sent[0].message).toEqual({
+      kind: "mpris.do_action", action: "seek", value: 42,
+    });
+  });
+
+  it("surfaces a content-script failure reply (e.g. no media element)", async () => {
+    env.scope.qdistroTabs.sendMessageToTab = async () =>
+      ({ ok: false, error: "no_media_element" });
+    await env.scope.qdistroDispatcher.handleInbound({
+      op: "mpris.control", request_id: 4, action: "play", tab_id: 7,
     });
     const reply = lastOutbound("mpris.control.reply");
-    expect(reply.action).toBe("next");
+    // Dispatcher tags the frame ok:true (it ran), but the handler body
+    // carries the real {ok:false, error}.
+    expect(reply.error).toBe("no_media_element");
   });
 
-  it("handles mpris.control 'prev'", async () => {
+  it("falls back to the last-published tab when tab_id is omitted", async () => {
+    const p = env.scope.qdistroMpris.update({ state: "playing", tab_id: 13 });
+    const pub = lastOutbound("mpris.publish");
+    env.port.deliver({ op: "mpris.publish.reply", request_id: pub.request_id, ok: true });
+    await p;
     await env.scope.qdistroDispatcher.handleInbound({
-      op: "mpris.control", request_id: 4, action: "prev",
+      op: "mpris.control", request_id: 5, action: "play",
     });
-    const reply = lastOutbound("mpris.control.reply");
-    expect(reply.action).toBe("prev");
+    expect(sent[0].tabId).toBe(13);
   });
 
-  it("coerces a missing action to the empty string", async () => {
-    await env.scope.qdistroDispatcher.handleInbound({
-      op: "mpris.control", request_id: 5,
-    });
-    const reply = lastOutbound("mpris.control.reply");
-    expect(reply.action).toBe("");
-    expect(reply.ok).toBe(true);
-  });
-
-  it("marks the reply as stub:true so the bridge can log it", async () => {
+  it("fails closed with no_target_tab when no tab is known", async () => {
     await env.scope.qdistroDispatcher.handleInbound({
       op: "mpris.control", request_id: 6, action: "play",
     });
+    expect(sent).toHaveLength(0);
     const reply = lastOutbound("mpris.control.reply");
-    expect(reply.stub).toBe(true);
+    expect(reply.error).toBe("no_target_tab");
+  });
+
+  it("reports tab_delivery_failed when the tab has no content script", async () => {
+    env.scope.qdistroTabs.sendMessageToTab = async () => {
+      throw new Error("Could not establish connection. Receiving end does not exist.");
+    };
+    await env.scope.qdistroDispatcher.handleInbound({
+      op: "mpris.control", request_id: 7, action: "play", tab_id: 7,
+    });
+    const reply = lastOutbound("mpris.control.reply");
+    expect(reply.error).toBe("tab_delivery_failed");
+  });
+
+  it("reports no_content_script when the reply is undefined", async () => {
+    env.scope.qdistroTabs.sendMessageToTab = async () => undefined;
+    await env.scope.qdistroDispatcher.handleInbound({
+      op: "mpris.control", request_id: 8, action: "play", tab_id: 7,
+    });
+    const reply = lastOutbound("mpris.control.reply");
+    expect(reply.error).toBe("no_content_script");
   });
 
   it("update() emits mpris.publish with bridge-shaped fields", async () => {

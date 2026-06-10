@@ -45,4 +45,28 @@ describe("qdistroTabs", () => {
     const reply = env.port.sent.find((m) => m.op === "tabs.close.reply");
     expect(reply.error).toBe("missing_tab_ids");
   });
+
+  it("sendMessageToTab delivers to the tab and resolves the reply", async () => {
+    const calls = [];
+    env.scope.chrome.tabs.sendMessage = (tabId, message, cb) => {
+      calls.push({ tabId, message });
+      cb({ ok: true, action: message.action });
+    };
+    const r = await env.scope.qdistroTabs.sendMessageToTab(7, {
+      kind: "mpris.do_action", action: "play",
+    });
+    expect(calls).toEqual([{ tabId: 7, message: { kind: "mpris.do_action", action: "play" } }]);
+    expect(r).toEqual({ ok: true, action: "play" });
+  });
+
+  it("sendMessageToTab rejects on runtime.lastError (no receiver)", async () => {
+    env.scope.chrome.tabs.sendMessage = (tabId, message, cb) => {
+      env.scope.chrome.runtime.lastError = { message: "Receiving end does not exist." };
+      cb(undefined);
+      env.scope.chrome.runtime.lastError = null;
+    };
+    await expect(
+      env.scope.qdistroTabs.sendMessageToTab(7, { kind: "mpris.do_action", action: "play" }),
+    ).rejects.toThrow(/Receiving end/);
+  });
 });
