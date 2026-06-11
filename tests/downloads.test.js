@@ -155,22 +155,36 @@ describe("qdistroDownloads", () => {
     expect(frames[0].request_id).not.toBe(frames[1].request_id);
   });
 
-  it("swallows a bridge reply with ok:false (fire-and-forget)", async () => {
+  it("swallows a bridge reply with ok:false (fire-and-forget) and clears the pending slot", async () => {
     env.scope.qdistroDownloads.install();
     nextItem = { id: 1, state: "complete" };
     chrome.downloads.onChanged.fire({ id: 1 });
     const frame = outboundOps("downloads.notify")[0];
-    // Deliver an error reply — module .catch()s, so no unhandled rejection.
+    expect(frame).toBeTruthy();
+    // The outbound request is tracked as pending until a correlated
+    // reply lands.
+    const dispatcher = env.scope.qdistroDispatcher;
+    expect(dispatcher.pending.has(frame.request_id)).toBe(true);
+
+    // Deliver an error reply. The module .catch()s the rejected
+    // round-trip, so there's no unhandled rejection — but the reply
+    // must still be CORRELATED: the dispatcher removes the pending
+    // slot (clearing its timeout) rather than treating it as an
+    // orphan. A swallowed reply that left the slot pending would leak
+    // the 10s timer and eventually reject.
     env.port.deliver({
       op: "downloads.notify.reply",
       request_id: frame.request_id,
       ok: false,
       error: "policy_denied",
     });
-    // Let the microtask queue drain.
+    // Let the microtask queue drain so the module's .catch() runs.
     await new Promise((r) => setTimeout(r, 0));
-    // Nothing observable to assert beyond "no throw"; the test simply
-    // exercises the .catch path.
-    expect(true).toBe(true);
+
+    // Pending slot cleared (reply was correlated and consumed)...
+    expect(dispatcher.pending.has(frame.request_id)).toBe(false);
+    // ...and the error reply produced no follow-up outbound frame
+    // (fire-and-forget: the extension does not retry or re-emit).
+    expect(outboundOps("downloads.notify")).toHaveLength(1);
   });
 });
