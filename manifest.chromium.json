@@ -8,13 +8,11 @@
   "permissions": [
     "nativeMessaging",
     "tabs",
-    "activeTab",
     "cookies",
     "downloads",
     "notifications",
     "contextMenus",
     "scripting",
-    "webNavigation",
     "storage"
   ],
   "host_permissions": [

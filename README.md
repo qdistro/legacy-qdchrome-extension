@@ -60,19 +60,25 @@ enterprise policy that force-installs the packed extension.
 
 ## Permissions
 
-The extension requests broad permissions because it is a bridge adapter:
+The extension is a bridge adapter; its permission set is pinned to the
+minimal set the frozen v1 op set actually uses (see
+`tests/manifest.test.js`):
 
 | Permission | Why |
 | --- | --- |
 | `nativeMessaging` | Talk to the qdistro browser bridge |
-| `tabs`, `activeTab` | Enumerate and operate on browser tabs |
+| `tabs` | Enumerate and operate on browser tabs across windows |
 | `cookies` | Export cookies through a gated bridge operation |
 | `downloads` | Report download lifecycle updates |
 | `notifications` | Show notifications requested by the bridge |
 | `contextMenus` | Provide "Send to qdistro..." style actions |
 | `scripting`, `<all_urls>` | Page extraction and content observers |
-| `webNavigation` | Navigation context for page operations |
 | `storage` | Options page state |
+
+`activeTab` (redundant with the `<all_urls>` host grant + `tabs`) and
+`webNavigation` (no navigation listener exists in `src/`) were dropped
+under S8 P0-5. New permissions require updating the closed-set test after a
+security review.
 
 ## Architecture
 
