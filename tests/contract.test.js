@@ -69,30 +69,53 @@ describe("bridge protocol contract — OUTBOUND (extension → bridge)", () => {
     return env.port.sent.find((m) => m.op === op);
   }
 
+  // Returns the intent token `produce` minted (for intentOp frames), or
+  // undefined for unprivileged/op_via frames.
   async function produce(f) {
+    let minted;
     if (f.op_via === "downloads") {
       env.scope.qdistroDownloads.install();
       chrome.downloads.onChanged.fire({ id: 11, state: { current: "in_progress" } });
-    } else if (f.op_via === "cookies") {
-      void env.scope.qdistroCookies.exportForUrl("https://example.com/", {
-        operation: "cookies.export", nonce: "gf-c1",
-      });
     } else {
-      f.produce(env);
+      // `produce` may mint a real intent token (async); await it and
+      // capture the exact token it minted.
+      minted = await f.produce(env);
     }
-    // Both callback (downloads/cookies) and sync (screenlock/pwd/mpris)
-    // paths land within a microtask tick.
-    await new Promise((r) => setTimeout(r, 0));
+    // The frame is posted synchronously inside the module's
+    // dispatcher.request(); poll a few microtask ticks so any
+    // callback/Promise chain has landed it before we read.
+    for (let i = 0; i < 5; i++) {
+      if (sentFor(f.op)) break;
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    return minted;
   }
 
   for (const f of OUTBOUND) {
     it(`produces a canonical ${f.name} frame`, async () => {
-      await produce(f);
+      const minted = await produce(f);
       const frame = sentFor(f.op);
       expect(frame, `no ${f.op} frame produced`).toBeTruthy();
       expect(frame).toMatchObject(f.match);
       for (const k of f.keys || []) {
         expect(frame, `frame missing key ${k}`).toHaveProperty(k);
+      }
+      // Privileged frames must forward the EXACT token the real intent.js
+      // minted — not a placeholder and not a re-fabricated look-alike. The
+      // minted token is {request_id, ts, op, hmac} with a genuine sha256
+      // HMAC over the session secret; assert its shape, then assert the
+      // frame forwarded that very object so a plausible-but-fake token
+      // (which the bridge's verify_intent_token would reject) cannot pass.
+      if (f.intentOp) {
+        expect(minted && typeof minted === "object",
+          `${f.op} produce() must mint and return a token`).toBe(true);
+        expect(minted.op, "minted token op binds to the operation").toBe(f.intentOp);
+        expect(typeof minted.request_id).toBe("string");
+        expect(minted.request_id.length).toBeGreaterThan(0);
+        expect(typeof minted.ts).toBe("number");
+        expect(minted.hmac, "minted token carries a sha256-hex HMAC").toMatch(/^[0-9a-f]{64}$/);
+        expect(frame.intent_token,
+          "frame forwards the exact minted token").toEqual(minted);
       }
     });
   }
