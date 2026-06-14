@@ -12,11 +12,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import vm from "node:vm";
 
-const SRC = readFileSync(
-  resolve(__dirname, "..", "src", "content", "pwd-content.js"),
-  "utf8",
-);
+const SRC_PATH = resolve(__dirname, "..", "src", "content", "pwd-content.js");
+const SRC = readFileSync(SRC_PATH, "utf8");
 
 // The background now speaks the daemon's TWO-PHASE protocol:
 //   - pwd.request_fill        → metadata rows {username, url} + fill_token
@@ -141,8 +140,10 @@ function uninstallTrustWrapper() {
 
 function load(env) {
   globalThis.chrome = env.chrome;
-  // eslint-disable-next-line no-new-func
-  new Function(SRC)();
+  // Compile with the real on-disk `filename` (vs `new Function`'s anonymous,
+  // URL-less script) so V8 coverage attributes lines to src/content/pwd-content.js.
+  // No parsingContext => current (jsdom) context, so document stays available.
+  vm.compileFunction(SRC, [], { filename: SRC_PATH })();
 }
 
 function detachTrackedListeners() {

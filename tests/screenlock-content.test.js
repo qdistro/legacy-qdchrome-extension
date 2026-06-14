@@ -4,11 +4,10 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import vm from "node:vm";
 
-const SRC = readFileSync(
-  resolve(__dirname, "..", "src", "content", "screenlock-content.js"),
-  "utf8",
-);
+const SRC_PATH = resolve(__dirname, "..", "src", "content", "screenlock-content.js");
+const SRC = readFileSync(SRC_PATH, "utf8");
 
 function makeBrowser() {
   const sent = [];
@@ -27,8 +26,10 @@ function makeBrowser() {
 
 function load(env) {
   globalThis.chrome = env.chrome;
-  // eslint-disable-next-line no-new-func
-  new Function(SRC)();
+  // Compile with the real on-disk `filename` (vs `new Function`'s anonymous,
+  // URL-less script) so V8 coverage attributes lines to the on-disk source.
+  // No parsingContext => current (jsdom) context, so document stays available.
+  vm.compileFunction(SRC, [], { filename: SRC_PATH })();
 }
 
 function setFullscreen(el) {

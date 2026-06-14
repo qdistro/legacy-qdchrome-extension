@@ -6,11 +6,10 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import vm from "node:vm";
 
-const SRC = readFileSync(
-  resolve(__dirname, "..", "src", "content", "mpris-content.js"),
-  "utf8",
-);
+const SRC_PATH = resolve(__dirname, "..", "src", "content", "mpris-content.js");
+const SRC = readFileSync(SRC_PATH, "utf8");
 
 function makeBrowser() {
   const sent = [];
@@ -42,8 +41,11 @@ function makeBrowser() {
 
 function load(env) {
   globalThis.chrome = env.chrome;
-  // eslint-disable-next-line no-new-func
-  new Function(SRC)();
+  // Compile with the real on-disk `filename` (instead of `new Function`, whose
+  // anonymous script carries no URL) so the V8 coverage provider attributes the
+  // executed lines back to src/content/mpris-content.js. No parsingContext =>
+  // runs in the current (jsdom) context, so document/navigator stay available.
+  vm.compileFunction(SRC, [], { filename: SRC_PATH })();
 }
 
 function setMediaSession({ metadata, playbackState } = {}) {

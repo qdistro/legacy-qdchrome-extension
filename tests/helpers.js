@@ -9,6 +9,7 @@
 // @ts-check
 import fs from "node:fs";
 import path from "node:path";
+import vm from "node:vm";
 import { webcrypto } from "node:crypto";
 import { fileURLToPath } from "node:url";
 
@@ -136,13 +137,20 @@ export function loadExtension(opts = {}) {
   scope.Symbol = Symbol;
 
   function evalFile(rel) {
-    const code = fs.readFileSync(path.join(SRC, rel), "utf8");
+    const filename = path.join(SRC, rel);
+    const code = fs.readFileSync(filename, "utf8");
     // Each source file is an IIFE with `(function(root){ ... })(typeof self !== "undefined" ? self : globalThis)`.
-    // We can directly eval against `scope` via a small wrapper.
-    const wrapped =
-      `(function(self, chrome, console){\n${code}\n}).call(__scope__, __scope__, __scope__.chrome, __scope__.console)`;
-    const fn = new Function("__scope__", `return ${wrapped};`);
-    fn(scope);
+    // We compile a small wrapper that injects `self`/`chrome`/`console` and
+    // runs the source with `this` === scope. Compiling via vm.compileFunction
+    // with the real on-disk `filename` is what lets the V8 coverage provider
+    // attribute the executed lines back to src/<rel> (a bare `new Function`
+    // produces an anonymous script with no URL, so coverage stays 0%).
+    const fn = vm.compileFunction(
+      code,
+      ["self", "chrome", "console"],
+      { filename },
+    );
+    fn.call(scope, scope, scope.chrome, scope.console);
   }
 
   evalFile("api.js");

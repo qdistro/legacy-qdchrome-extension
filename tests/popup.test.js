@@ -4,10 +4,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import vm from "node:vm";
 
 const ROOT = resolve(__dirname, "..", "src");
 const POPUP_HTML = readFileSync(resolve(ROOT, "popup.html"), "utf8");
-const POPUP_JS = readFileSync(resolve(ROOT, "popup.js"), "utf8");
+const POPUP_JS_PATH = resolve(ROOT, "popup.js");
+const POPUP_JS = readFileSync(POPUP_JS_PATH, "utf8");
 
 function makeFakeChrome() {
   const sent = [];
@@ -44,10 +46,11 @@ async function loadPopup(env) {
   document.body.innerHTML = bodyMatch ? bodyMatch[1] : POPUP_HTML;
   globalThis.chrome = env.chrome;
   // popup.js references `browser` lazily via typeof; we don't set it.
-  // Eval directly into the current realm so document.getElementById
-  // resolves to jsdom's document.
-  // eslint-disable-next-line no-new-func
-  new Function(POPUP_JS)();
+  // Compile directly into the current realm (no parsingContext) so
+  // document.getElementById resolves to jsdom's document, AND pass the real
+  // on-disk `filename` so V8 coverage attributes lines to src/popup.js (a bare
+  // `new Function` produces an anonymous, URL-less script -> 0% coverage).
+  vm.compileFunction(POPUP_JS, [], { filename: POPUP_JS_PATH })();
   // refreshStatus() runs at module load; drain a microtask so its
   // assertion fires before the test asserts.
   await Promise.resolve();
