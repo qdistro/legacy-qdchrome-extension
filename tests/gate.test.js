@@ -118,9 +118,40 @@ describe("qdistroGate — module enablement defaults", () => {
 });
 
 describe("qdistroGate — origin allowlist", () => {
-  it("allows all origins when the allowlist is empty", () => {
+  it("denies every origin when the allowlist is empty (closed by default, J11)", () => {
     const g = loadExtension().scope.qdistroGate;
-    expect(g.isOriginAllowed("https://anything.example")).toBe(true);
+    // Empty/unset allowlist is now closed — a fresh install ships the
+    // page-initiated surface off, not open to every site.
+    expect(g.isOriginAllowed("https://anything.example")).toBe(false);
+    expect(g.isOriginAllowed("https://example.com/login")).toBe(false);
+  });
+
+  it("allows all origins ONLY when `*` is explicitly listed (J11 opt-in)", () => {
+    const chrome = fakeChromeWithConfig({ origin_allowlist: ["*"] });
+    const g = loadExtension({ chrome }).scope.qdistroGate;
+    expect(g.isOriginAllowed("https://anything.example/")).toBe(true);
+    expect(g.isOriginAllowed("http://plain.test/")).toBe(true);
+    // `*` restores the pre-J11 semantics, including opaque/unparsable
+    // URLs, so it is a faithful "all origins" replacement.
+    expect(g.isOriginAllowed("chrome://settings")).toBe(true);
+    expect(g.isOriginAllowed("about:blank")).toBe(true);
+  });
+
+  it("treats `*` as all-origins even alongside other entries", () => {
+    const chrome = fakeChromeWithConfig({
+      origin_allowlist: ["https://example.com", "*"],
+    });
+    const g = loadExtension({ chrome }).scope.qdistroGate;
+    expect(g.isOriginAllowed("https://unlisted.test/")).toBe(true);
+  });
+
+  it("does NOT treat a bare-host `*` lookalike as all-origins", () => {
+    // A literal host entry that merely contains a star (e.g. a typo)
+    // must not open the gate — only an entry that is exactly `*`.
+    const chrome = fakeChromeWithConfig({ origin_allowlist: ["*.example.com"] });
+    const g = loadExtension({ chrome }).scope.qdistroGate;
+    expect(g.isOriginAllowed("https://app.example.com/")).toBe(true);
+    expect(g.isOriginAllowed("https://unlisted.test/")).toBe(false);
   });
 
   it("restricts to exact hosts when set", () => {
@@ -254,6 +285,17 @@ describe("background onMessage gating via gate", () => {
     const r = await env.sendMessage(
       { kind: "pwd.request_fill", url: "https://evil.test/" },
       tabSender("https://evil.test/"),
+    );
+    expect(r).toEqual({ ok: false, error: "origin_not_allowed" });
+  });
+
+  it("refuses a content-script op when NO allowlist is configured (closed by default, J11)", async () => {
+    // No origin_allowlist saved → the default is now closed, so even a
+    // benign-looking site cannot drive the bridge until the user opts in.
+    const env = loadWithBackground({ chrome: fakeChromeWithConfig({}) });
+    const r = await env.sendMessage(
+      { kind: "pwd.request_fill", url: "https://anything.example/" },
+      tabSender("https://anything.example/"),
     );
     expect(r).toEqual({ ok: false, error: "origin_not_allowed" });
   });

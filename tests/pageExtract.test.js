@@ -2,7 +2,7 @@
 // page.extract frame shape, intent-token forwarding, broker-denied
 // reply handling.
 import { describe, it, expect, beforeEach, vi } from "vitest";
-import { loadExtension, makeFakeChrome, makeFakePort, makeEvent } from "./helpers.js";
+import { loadExtension, makeFakeChromeAllOrigins, makeFakePort, makeEvent } from "./helpers.js";
 
 describe("qdistroPageExtract", () => {
   let env;
@@ -11,7 +11,10 @@ describe("qdistroPageExtract", () => {
   let executedFns;
 
   beforeEach(() => {
-    chrome = makeFakeChrome();
+    // Origin gate is closed by default since J11; these tests exercise
+    // the extract flow, so opt in to all origins (`*`). Origin filtering
+    // for extract is covered in gate.test.js.
+    chrome = makeFakeChromeAllOrigins();
     menuCreated = [];
     chrome.contextMenus.create = (def, cb) => {
       menuCreated.push(def);
@@ -177,7 +180,9 @@ describe("qdistroPageExtract", () => {
 
   describe("page.extract.request (bridge → ext)", () => {
     function makeEnv(executeScript) {
-      const c = makeFakeChrome();
+      // Origin gate is closed by default since J11; the bridge→ext
+      // extract tests target a normal tab, so opt in to all origins.
+      const c = makeFakeChromeAllOrigins();
       c.scripting.executeScript = executeScript;
       const e = loadExtension({ chrome: c, portHandle: makeFakePort() });
       e.scope.qdistroPort.connect();

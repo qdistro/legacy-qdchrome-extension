@@ -2,9 +2,11 @@
 // origin-allowlist string into chrome.storage.local. The background
 // gate (src/gate.js) reads these at boot and re-reads on
 // storage.onChanged to gate dispatcher ops + background message
-// handling: a disabled module's wire ops are refused, and (when the
-// allowlist is non-empty) content-script ops are restricted to the
-// listed origins.
+// handling: a disabled module's wire ops are refused, and
+// content-script ops are restricted to the listed origins. The
+// allowlist is CLOSED BY DEFAULT (opus HIGH J11): an empty/unset list
+// denies every page-initiated op; a single `*` entry opts in to all
+// origins explicitly.
 //
 // The storage shape:
 //   {

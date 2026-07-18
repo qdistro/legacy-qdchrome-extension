@@ -102,6 +102,22 @@ export function makeFakeChrome(overrides = {}) {
   return Object.assign(fakes, overrides);
 }
 
+// A fake chrome whose stored config opts in to all origins (a single
+// `*` allowlist entry). Since J11 the origin allowlist is CLOSED BY
+// DEFAULT, so tests that exercise op-forwarding mechanics (not the
+// origin gate itself) must explicitly allow origins or every
+// page-initiated op is refused. Origin-gate behaviour is covered
+// directly in gate.test.js.
+export function makeFakeChromeAllOrigins(overrides = {}) {
+  const chrome = makeFakeChrome(overrides);
+  const local = chrome.storage.local;
+  chrome.storage = {
+    ...chrome.storage,
+    local: { ...local, get: (_keys, cb) => cb({ origin_allowlist: ["*"] }) },
+  };
+  return chrome;
+}
+
 export { makeEvent };
 
 /**

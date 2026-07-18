@@ -3,12 +3,15 @@
 // sendResponse(cb) + return true; helpers.js's loadWithBackground
 // wraps that in a Promise.
 import { describe, it, expect, beforeEach } from "vitest";
-import { loadWithBackground, makeFakeChrome, makeFakePort } from "./helpers.js";
+import { loadWithBackground, makeFakeChromeAllOrigins, makeFakePort } from "./helpers.js";
 
 describe("background runtime.onMessage", () => {
   let env;
   beforeEach(() => {
-    env = loadWithBackground();
+    // Origin gate is closed by default since J11; these tests exercise
+    // op-forwarding, so opt in to all origins (`*`) — origin filtering
+    // itself is covered in gate.test.js.
+    env = loadWithBackground({ chrome: makeFakeChromeAllOrigins() });
     env.scope.qdistroPort.connect();
   });
 
