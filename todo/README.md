@@ -20,9 +20,10 @@ bridge handlers ship.
 | [05-system-install-chromium.md](05-system-install-chromium.md) | OS-level injection | `ExtensionInstallForcelist` policy, stable manifest `key`, signed crx, system native-host |
 | [07-bridge-protocol-alignment.md](07-bridge-protocol-alignment.md) | Bridge protocol audit | Discovered + landed alignment with `qdistro_browser_bridge.py` (token shape, op renames, handshake). |
 
-This repo is Chromium-only. The Firefox extension is canonical in
-`../../qdfirefox-extension` (standalone) and
-`../../qdistro/browser_bridge/extension` (bundled); the former
+This repo is Chromium-only. The Firefox extension lives in
+`../../qdfirefox-extension` (standalone — the maintained one v1 users load)
+and `../../qdistro/browser_bridge/extension` (bundled — a legacy
+compatibility artifact with no origin allowlist, J11); the former
 Firefox-MV2-via-this-repo track was dropped and its build target removed.
 
 `page.extract.request` usage is product documentation now:
