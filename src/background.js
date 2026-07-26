@@ -16,8 +16,9 @@
 // The call is wrapped in try/catch so environments without it (the
 // vitest harness, which pre-loads the module globals directly) skip
 // the import and reuse the already-defined globals. This repo is
-// Chromium-only; the Firefox extensions live in their own canonical
-// repos (see ../qdistro/doc/browser.md "Firefox extension artifacts").
+// Chromium-only; the Firefox extensions live in their own repos — the
+// maintained ../qdfirefox-extension and the legacy bundled tree (see
+// ../qdistro/doc/browser.md "Firefox extension artifacts").
 //
 // @ts-check
 
