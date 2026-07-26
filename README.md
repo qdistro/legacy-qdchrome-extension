@@ -42,27 +42,57 @@ The build script writes unpacked browser trees under `dist/`.
 ## Test
 
 ```bash
-npm test
+npm test              # sibling-repo drift check skips-with-warning if absent
+npm run test:release  # QDISTRO_REQUIRE_SIBLING=1 — absent sibling is FATAL
 ```
 
-## Install (development)
+**Release CI must use `npm run test:release`** (or otherwise set
+`$QDISTRO_REQUIRE_SIBLING=1`) with `qdfirefox-extension` checked out
+side-by-side, or with `$QDISTRO_SIBLING_GOLDEN` pointing at its
+`tests/fixtures/golden-frames.js`. Both repos carry a byte-identical copy of
+that fixture — the bridge wire-protocol contract — and
+`tests/golden-frames-drift.test.js` warns and exits green instead of comparing
+across repos when the sibling is missing, so a plain `npm test` in a single-repo clone can
+be green without ever checking that the two protocol copies agree. qdistro's
+`qci` host gate sets both env vars for this repo.
+
+## Install
+
+**v1 ships no signed distribution channel for this extension** — no CRX
+signing key in production, no hosted `update.xml`, no auto-update. The v1
+install is a developer-mode unpacked load, and the operator-facing procedure
+(plus what the missing signature and update channel actually cost you) is
+[qdistro/doc/browser-extension-install.md](../qdistro/doc/browser-extension-install.md).
+The short version:
 
 ```bash
-python3 ../qdistro/browser_bridge/qdistro_browser_install.py \
-  --browsers chromium \
-  --bridge-path /path/to/qdistro-browser-bridge
+bash scripts/build-extension.sh          # -> dist/chromium/
+
+# On a qdistro install (writes ~/.config/chromium/NativeMessagingHosts/qdistro.json):
+qdistro-browser-install --browsers chromium
+# From a checkout:
+python3 ../qdistro/browser_bridge/qdistro_browser_install.py --browsers chromium
 ```
 
 Then load the unpacked extension from `dist/chromium/` in
 `chrome://extensions` or `chromium://extensions` with developer mode enabled.
-For system installs, `scripts/install-system-policy.sh` writes the Chromium
-enterprise policy that force-installs the packed extension.
+Because `manifest.chromium.json` pins the public key, the unpacked load gets
+the same stable id (`ammgnkddbnjdhikklpljgiclldedgncf`) the native-messaging
+manifest authorizes.
+
+`scripts/install-system-policy.sh` writes the Chromium enterprise policy that
+force-installs a *packed* extension from
+`/usr/share/qdistro/extensions/…`. Nothing populates that path in v1 — the
+script is scaffolding for the post-v1 signed channel, not a v1 install path.
 
 ## Permissions
 
 The extension is a bridge adapter; its permission set is pinned to the
-minimal set the frozen v1 op set actually uses (see
-`tests/manifest.test.js`):
+minimal set the ops implemented in `src/` actually use, with a closed-set
+test in `tests/manifest.test.js`. That is broader than the *effective* v1
+bridge surface under decision D5 (`qdistro.ping`; `containers.*` is Firefox
+only) — the module code and the bridge dispatch table still carry the
+Phase-9 handlers. See `../qdistro/doc/browser.md` (P0-4/5/6 disposition):
 
 | Permission | Why |
 | --- | --- |
@@ -120,16 +150,17 @@ collided with the **bundled** Firefox extension that used to ship from
 `../qdistro/browser_bridge/extension` (a different codebase under the *same*
 id). To canonicalize the Firefox artifacts, that target was removed.
 
+**For Firefox, build and load [qdfirefox-extension](../qdfirefox-extension)**
+(id `qdistro-firefox@qdistro.local`, MV3, first-class containers), with
+`qdistro-browser-install --browsers firefox`.
+
 That bundled tree has since been **deleted** (J11): it was an abandoned fork
-that never grew the module/origin gate, and it was the only extension the
-qdistro installer actually laid down. Firefox now ships from exactly one
-source:
-
-- [qdfirefox-extension](../qdfirefox-extension), id
-  `qdistro-firefox@qdistro.local` (MV3, first-class containers).
-
-`qdistro@qdistro.local` is a **revoked** id — the qdistro bridge refuses it.
-See `../qdistro/doc/browser.md` ("Firefox extension artifacts").
+that never grew the module/origin gate, so it had no origin allowlist at all,
+and it was the only extension the qdistro installer actually laid down. Its
+id `qdistro@qdistro.local` is now **revoked** — the qdistro bridge refuses it
+— and `--firefox-mode bundled` is a hard error, leaving `standalone` as the
+only mode. See `../qdistro/doc/browser-extension-install.md` for the v1
+procedure and `../qdistro/doc/browser.md` ("Firefox extension artifacts").
 
 ## Related repos
 

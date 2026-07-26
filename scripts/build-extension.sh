@@ -8,6 +8,9 @@
 # This repo is Chromium-only. The Firefox extension has exactly one
 # canonical source and is NOT built here:
 #   ../qdfirefox-extension   (id qdistro-firefox@qdistro.local)
+#   -- the qdistro/browser_bridge/extension "bundled" tree that used to be
+#      the other Firefox source was deleted for J11 (no origin allowlist)
+#      and its id qdistro@qdistro.local is revoked by the bridge.
 # A Firefox MV2 build used to be emitted here under id qdistro@qdistro.local,
 # which collided with the then-bundled qdistro/browser_bridge/extension (two
 # distinct codebases, same gecko id). The target was removed to canonicalize

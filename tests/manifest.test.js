@@ -1,8 +1,9 @@
 // manifest.chromium.json shape tests + Firefox-canonicalization guard.
 //
-// This repo is Chromium-only. The Firefox extension is shipped from its
-// own canonical sources (../qdfirefox-extension standalone, and
-// ../qdistro/browser_bridge/extension bundled) — NOT built here. A
+// This repo is Chromium-only. The Firefox extension comes from its own
+// sources — ../qdfirefox-extension (standalone; the maintained one v1
+// users load) and ../qdistro/browser_bridge/extension (bundled; a LEGACY
+// compatibility artifact with no origin allowlist, J11) — NOT built here. A
 // legacy Firefox MV2 target used to be emitted from this repo under
 // gecko id `qdistro@qdistro.local`, colliding with the bundled
 // extension's id (two distinct codebases, same id). The guard suite
@@ -130,8 +131,8 @@ describe("chrome extension manifest — closed permission set", () => {
 
 // ---- Firefox-canonicalization guard -------------------------------
 // Keeps the removed Firefox MV2 target from being reintroduced. The
-// Firefox extension is canonical elsewhere (qdfirefox-extension /
-// qdistro browser_bridge bundled); building one here under
+// Firefox extension lives elsewhere (qdfirefox-extension for v1;
+// qdistro browser_bridge/extension as the legacy artifact); building one here under
 // `qdistro@qdistro.local` re-creates the id-collision drift trap.
 describe("Firefox build target is not shipped from this repo", () => {
   it("manifest.firefox.json is absent", () => {
