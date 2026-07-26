@@ -146,19 +146,24 @@ qdchrome-extension/
 
 This repo builds the Chromium-family extension only. It used to also emit a
 Firefox MV2 `dist/firefox.xpi` under gecko id `qdistro@qdistro.local`, but that
-collided with the **bundled** Firefox extension shipped from
+collided with the **bundled** Firefox extension in
 `../qdistro/browser_bridge/extension` (a different codebase under the *same*
-id). To canonicalize the Firefox artifacts, that target was removed. Ship
-Firefox from one of its two canonical sources instead:
+id). To canonicalize the Firefox artifacts, that target was removed.
 
-- **standalone** — [qdfirefox-extension](../qdfirefox-extension), id
-  `qdistro-firefox@qdistro.local` (MV3, first-class containers).
-- **bundled** — `../qdistro/browser_bridge/extension`, id
-  `qdistro@qdistro.local` (the MV2 build the browser-bridge installer
-  authorizes by default).
+**For Firefox, build and load [qdfirefox-extension](../qdfirefox-extension)**
+(id `qdistro-firefox@qdistro.local`, MV3, first-class containers), with
+`qdistro-browser-install --browsers firefox --firefox-mode standalone`.
 
-See `../qdistro/doc/browser.md` ("Firefox extension artifacts") for the full
-bundled-vs-standalone contract.
+The bundled tree (`../qdistro/browser_bridge/extension`, id
+`qdistro@qdistro.local`) is **not** a supported v1 install source: it is a
+legacy MV2 artifact with no `src/`, no `gate.js` and no origin allowlist, and
+the browser-bridge installer both copies it to
+`/usr/share/qdistro/browser-extension/` and authorizes its id by default —
+which is why `--firefox-mode standalone` is not optional. That mismatch is
+J11 in `../todo/fable-release/10-reachability-audit-2026-07-26.md`, tracked
+separately. See `../qdistro/doc/browser-extension-install.md` for the v1
+procedure and `../qdistro/doc/browser.md` ("Firefox extension artifacts") for
+the bundled-vs-standalone contract.
 
 ## Related repos
 
