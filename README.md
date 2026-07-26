@@ -116,19 +116,20 @@ qdchrome-extension/
 
 This repo builds the Chromium-family extension only. It used to also emit a
 Firefox MV2 `dist/firefox.xpi` under gecko id `qdistro@qdistro.local`, but that
-collided with the **bundled** Firefox extension shipped from
+collided with the **bundled** Firefox extension that used to ship from
 `../qdistro/browser_bridge/extension` (a different codebase under the *same*
-id). To canonicalize the Firefox artifacts, that target was removed. Ship
-Firefox from one of its two canonical sources instead:
+id). To canonicalize the Firefox artifacts, that target was removed.
 
-- **standalone** — [qdfirefox-extension](../qdfirefox-extension), id
+That bundled tree has since been **deleted** (J11): it was an abandoned fork
+that never grew the module/origin gate, and it was the only extension the
+qdistro installer actually laid down. Firefox now ships from exactly one
+source:
+
+- [qdfirefox-extension](../qdfirefox-extension), id
   `qdistro-firefox@qdistro.local` (MV3, first-class containers).
-- **bundled** — `../qdistro/browser_bridge/extension`, id
-  `qdistro@qdistro.local` (the MV2 build the browser-bridge installer
-  authorizes by default).
 
-See `../qdistro/doc/browser.md` ("Firefox extension artifacts") for the full
-bundled-vs-standalone contract.
+`qdistro@qdistro.local` is a **revoked** id — the qdistro bridge refuses it.
+See `../qdistro/doc/browser.md` ("Firefox extension artifacts").
 
 ## Related repos
 

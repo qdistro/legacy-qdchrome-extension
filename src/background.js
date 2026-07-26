@@ -163,7 +163,7 @@ function pwdSenderUrl(req, sender) {
   // the top frame (codex finding #3). Fall back to tabUrl when the
   // frame URL is unavailable.
   const frameUrl = (sender && sender.url) || tabUrl;
-  if (self.qdistroGate && !self.qdistroGate.isOriginAllowed(frameUrl)) {
+  if (!self.qdistroGate || !self.qdistroGate.isOriginAllowed(frameUrl)) {
     return { ok: false, error: "origin_not_allowed" };
   }
   return { ok: true, url: tabUrl };
@@ -234,7 +234,7 @@ if (api && api.runtime && api.runtime.onMessage) {
               sendResponse({ ok: false, error: "no_active_tab" });
               return;
             }
-            if (self.qdistroGate && !self.qdistroGate.isOriginAllowed(url)) {
+            if (!self.qdistroGate || !self.qdistroGate.isOriginAllowed(url)) {
               sendResponse({ ok: false, error: "origin_not_allowed" });
               return;
             }
@@ -310,7 +310,7 @@ if (api && api.runtime && api.runtime.onMessage) {
             // is the real frame URL set by the browser (sender.url),
             // not the page-supplied req.url. Fall back to the tab URL.
             const mprisUrl = sender.url || (sender.tab && sender.tab.url) || "";
-            if (self.qdistroGate && !self.qdistroGate.isOriginAllowed(mprisUrl)) {
+            if (!self.qdistroGate || !self.qdistroGate.isOriginAllowed(mprisUrl)) {
               sendResponse({ ok: false, error: "origin_not_allowed" });
               return;
             }
@@ -332,7 +332,7 @@ if (api && api.runtime && api.runtime.onMessage) {
           }
           case "screenlock.report_inhibit": {
             const slUrl = sender.url || (sender.tab && sender.tab.url) || "";
-            if (self.qdistroGate && !self.qdistroGate.isOriginAllowed(slUrl)) {
+            if (!self.qdistroGate || !self.qdistroGate.isOriginAllowed(slUrl)) {
               sendResponse({ ok: false, error: "origin_not_allowed" });
               return;
             }

@@ -300,6 +300,24 @@ describe("background onMessage gating via gate", () => {
     expect(r).toEqual({ ok: false, error: "origin_not_allowed" });
   });
 
+  it("FAILS CLOSED when the gate module is absent entirely", async () => {
+    // The gate used to be consulted as `self.qdistroGate && !allowed`,
+    // so an extension whose gate.js never loaded (or threw before
+    // exporting) ran every page-initiated op ungated — the same end
+    // state J11 was about. Deleting the export must deny, not allow.
+    const env = loadWithBackground({
+      chrome: fakeChromeWithConfig({
+        origin_allowlist: ["https://allowed.example"],
+      }),
+    });
+    delete env.scope.qdistroGate;
+    const r = await env.sendMessage(
+      { kind: "pwd.request_fill", url: "https://allowed.example/" },
+      tabSender("https://allowed.example/"),
+    );
+    expect(r).toEqual({ ok: false, error: "origin_not_allowed" });
+  });
+
   it("allows a content-script op from an allowlisted origin (reaches the bridge)", async () => {
     const chrome = fakeChromeWithConfig({
       origin_allowlist: ["https://allowed.example"],
@@ -365,6 +383,23 @@ describe("background onMessage gating via gate", () => {
       },
     );
     expect(r).toEqual({ ok: false, error: "origin_not_allowed" });
+  });
+});
+
+describe("page.extract fails closed when the gate module is absent", () => {
+  it("bridge-initiated page.extract.request refuses with no gate", async () => {
+    const env = loadExtension({
+      chrome: fakeChromeWithConfig({ origin_allowlist: ["*"] }),
+    });
+    env.scope.qdistroPort.connect();
+    delete env.scope.qdistroGate;
+    await env.scope.qdistroDispatcher.handleInbound({
+      op: "page.extract.request", request_id: "rp-nogate", tab_id: 5,
+      mode: "visible_text",
+    });
+    const reply = env.port.sent.find(
+      (m) => m.op === "page.extract.request.reply");
+    expect(reply).toMatchObject({ ok: false, error: "origin_not_allowed" });
   });
 });
 
