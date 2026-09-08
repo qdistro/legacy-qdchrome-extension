@@ -5,16 +5,18 @@
 #   dist/chromium/        unpacked MV3 tree (uses importScripts)
 #   dist/chromium.zip     packed for `chrome.runtime.installFromZip`
 #
-# This repo is Chromium-only. The Firefox extension comes from its own
-# sources, NOT built here:
-#   - standalone:  ../qdfirefox-extension      (id qdistro-firefox@qdistro.local)
-#                  -- the maintained one; what v1 users build and load
-#   - bundled:     ../qdistro/browser_bridge/extension (id qdistro@qdistro.local)
-#                  -- LEGACY compatibility artifact, no origin allowlist (J11)
+# This repo is Chromium-only. The Firefox extension has exactly one
+# canonical source and is NOT built here:
+#   ../qdfirefox-extension   (id qdistro-firefox@qdistro.local)
+#   -- the qdistro/browser_bridge/extension "bundled" tree that used to be
+#      the other Firefox source was deleted for J11 (no origin allowlist)
+#      and its id qdistro@qdistro.local is revoked by the bridge.
 # A Firefox MV2 build used to be emitted here under id qdistro@qdistro.local,
-# which collided with the bundled extension's id (two distinct codebases,
-# same gecko id). The target was removed to canonicalize the Firefox
-# artifacts. See ../qdistro/doc/browser.md ("Firefox extension artifacts").
+# which collided with the then-bundled qdistro/browser_bridge/extension (two
+# distinct codebases, same gecko id). The target was removed to canonicalize
+# the Firefox artifacts; that bundled tree was later deleted outright (J11 —
+# it had no origin gate) and its id is now revoked by the bridge.
+# See ../qdistro/doc/browser.md ("Firefox extension artifacts").
 #
 # Chromium MV3 uses importScripts(...) in the service worker so we
 # can ship the source tree as-is.
