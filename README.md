@@ -1,3 +1,9 @@
+> **Moved.** This repository is frozen and archived. Development continues in
+> [qdistro/qdistro](https://github.com/qdistro/qdistro/tree/main/qdchrome-extension) under
+> `qdchrome-extension/`. Its full history up to `8f7cdf769` is also preserved there on
+> branch [`legacy/multirepo/qdchrome-extension`](https://github.com/qdistro/qdistro/tree/legacy/multirepo/qdchrome-extension).
+> This repository was renamed from `qdchrome-extension` to `legacy-qdchrome-extension`.
+
 # qdchrome-extension
 
 Chromium MV3 WebExtension and native-messaging client for the qdistro browser
